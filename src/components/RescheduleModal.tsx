@@ -47,8 +47,11 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
-      <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-2xl text-slate-800">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/50 sm:p-4 backdrop-blur-xs">
+      <div className="relative w-full max-w-md rounded-t-3xl sm:rounded-2xl border border-slate-200 bg-white shadow-2xl text-slate-800 my-0 sm:my-8 animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 duration-200">
+        {/* Mobile handle indicator */}
+        <div className="sm:hidden mx-auto mt-2 h-1.5 w-12 rounded-full bg-slate-200 shrink-0" />
+
         <div className="flex items-center justify-between border-b border-slate-100 p-4 sm:p-5">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700 border border-cyan-100">
@@ -62,8 +65,9 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
           >
             <X className="w-5 h-5" />
           </button>

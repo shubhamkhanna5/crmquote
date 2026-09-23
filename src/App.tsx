@@ -43,7 +43,7 @@ import {
 } from './types';
 import { api } from './services/api';
 import { formatIndianCurrency } from '../server/normalizer';
-import { RotateCw, Search, Plus, CheckCircle2 } from 'lucide-react';
+import { RotateCw, Search, Plus, CheckCircle2, Layers, Lock } from 'lucide-react';
 
 export default function App() {
   const { showToast } = useToast();
@@ -440,10 +440,70 @@ export default function App() {
       />
 
       {/* Main View Area */}
-      <main className="flex-1 overflow-y-auto bg-slate-50 px-4 py-4 sm:px-8 sm:py-6">
+      <main className="flex-1 overflow-y-auto bg-slate-50 px-3 py-3 sm:px-8 sm:py-6 pb-28 md:pb-8">
         <div className="mx-auto max-w-7xl">
-          {/* Streamlined Profile & Workspace Header */}
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3.5">
+          {/* Mobile Sticky Top Header (md:hidden) */}
+          <div className="md:hidden sticky top-0 z-30 -mx-3 -mt-3 mb-3 bg-white/95 px-3 py-2.5 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
+            <div className="flex items-center justify-between gap-2">
+              {/* Brand & User switcher */}
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-teal-600 text-white shadow-2xs">
+                  <Layers className="w-4 h-4" />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = activeUser === 'Pranjal' ? 'Shubham' : 'Pranjal';
+                      setTargetSwitchUser(next);
+                    }}
+                    className="flex items-center gap-1 rounded-lg bg-teal-50 border border-teal-200 px-2.5 py-1 text-xs font-bold text-teal-800 active:scale-95 transition"
+                    title={`Switch user (current: ${activeUser})`}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-teal-600" />
+                    <span>{activeUser}</span>
+                    <Lock className="w-2.5 h-2.5 text-teal-500 ml-0.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Sync & Google Calendar Sync */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleTriggerSync}
+                  disabled={isSyncing}
+                  className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 active:scale-95 transition disabled:opacity-50 shadow-2xs"
+                  title="Quick sync Google Sheet"
+                >
+                  <RotateCw className={`w-3.5 h-3.5 text-teal-600 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span className="text-[11px]">Sync</span>
+                </button>
+                <GoogleCalendarButton
+                  variant="pill"
+                  followups={userFollowups}
+                  quotations={userQuotations}
+                  onSyncComplete={() => loadData(true)}
+                />
+              </div>
+            </div>
+
+            {/* Quick Metrics Bar on Phone */}
+            <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-100 pt-1.5">
+              <span className="font-medium text-slate-700">
+                <strong className="text-slate-900">{userQuotations.length}</strong> quotes ·{' '}
+                <strong className="text-teal-700">{userFollowups.length}</strong> follow-ups
+              </span>
+              {latestSync?.completed_at && (
+                <span className="text-slate-400 text-[10px]">
+                  Synced {new Date(latestSync.completed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Desktop Streamlined Profile & Workspace Header (hidden md:flex) */}
+          <div className="hidden md:flex mb-6 flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3.5">
             <div className="flex items-center gap-3">
               <span className="text-xs font-medium text-slate-500">Workspace:</span>
               <div className="inline-flex items-center rounded-xl bg-white border border-slate-200 p-1 shadow-xs">

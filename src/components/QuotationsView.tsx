@@ -1138,48 +1138,14 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
                     onClick={(e) => e.stopPropagation()}
                   >
                     {q.next_followup ? (
-                      <div className="grid grid-cols-4 gap-2">
-                        <a
-                          href={`tel:${phoneClean}`}
-                          className="flex flex-col items-center justify-center rounded-xl bg-slate-800 py-2 text-[11px] font-medium text-slate-200 hover:bg-slate-700"
-                        >
-                          <Phone className="w-3.5 h-3.5 text-emerald-400 mb-0.5" />
-                          <span>Call</span>
-                        </a>
-
-                        <a
-                          href={waUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex flex-col items-center justify-center rounded-xl bg-emerald-950/50 border border-emerald-900/60 py-2 text-[11px] font-medium text-emerald-300 hover:bg-emerald-900"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5 text-emerald-400 mb-0.5" />
-                          <span>WhatsApp</span>
-                        </a>
-
-                        <button
-                          onClick={() => onOpenDoneModal(q.next_followup!)}
-                          className="flex flex-col items-center justify-center rounded-xl bg-emerald-600 py-2 text-[11px] font-bold text-white hover:bg-emerald-500"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5 mb-0.5" />
-                          <span>Done</span>
-                        </button>
-                        <button
-                          onClick={() => onOpenRescheduleModal(q.next_followup!)}
-                          className="flex flex-col items-center justify-center rounded-xl bg-slate-950 border border-slate-800 py-2 text-[11px] font-medium text-slate-300"
-                        >
-                          <RotateCw className="w-3.5 h-3.5 text-cyan-400 mb-0.5" />
-                          <span>Later</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
+                      <div className="flex flex-col gap-1.5">
                         <div className="grid grid-cols-3 gap-1.5">
                           <a
                             href={`tel:${phoneClean}`}
-                            className="flex items-center justify-center gap-1 rounded-xl bg-slate-800 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700"
+                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-slate-800 border border-slate-700 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 active:scale-95 touch-manipulation transition shadow-2xs"
+                            title={`Call ${q.client_name}`}
                           >
-                            <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                            <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
                             <span>Call</span>
                           </a>
 
@@ -1187,41 +1153,84 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
                             href={waUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center justify-center gap-1 rounded-xl bg-emerald-950/50 border border-emerald-900/60 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-900"
+                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-emerald-600 border border-emerald-700 py-2 text-xs font-bold text-white hover:bg-emerald-500 active:scale-95 touch-manipulation transition shadow-2xs"
+                            title="Send WhatsApp message"
                           >
-                            <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                            <MessageCircle className="w-4 h-4 shrink-0" />
+                            <span>WhatsApp</span>
+                          </a>
+
+                          <button
+                            type="button"
+                            onClick={() => onOpenDoneModal(q.next_followup!)}
+                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-teal-600 hover:bg-teal-500 py-2 text-xs font-bold text-white active:scale-95 touch-manipulation transition shadow-2xs"
+                            title="Complete Follow-Up"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Done</span>
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => onOpenRescheduleModal(q.next_followup!)}
+                          className="w-full min-h-[38px] flex items-center justify-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/90 py-1 px-3 text-xs font-medium text-slate-300 active:scale-95 touch-manipulation transition"
+                          title="Reschedule follow-up"
+                        >
+                          <RotateCw className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>Reschedule / Later</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-1.5">
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <a
+                            href={`tel:${phoneClean}`}
+                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-slate-800 border border-slate-700 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 active:scale-95 touch-manipulation transition"
+                          >
+                            <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <span>Call</span>
+                          </a>
+
+                          <a
+                            href={waUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-emerald-600 border border-emerald-700 py-2 text-xs font-bold text-white hover:bg-emerald-500 active:scale-95 touch-manipulation transition"
+                          >
+                            <MessageCircle className="w-4 h-4 shrink-0" />
                             <span>WhatsApp</span>
                           </a>
 
                           <button
                             type="button"
                             onClick={() => setActionModalQuote(q)}
-                            className="flex items-center justify-center gap-1 rounded-xl bg-teal-950/60 border border-teal-800/80 py-2 text-xs font-semibold text-teal-300 hover:bg-teal-900 transition active:scale-95"
+                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-teal-600 border border-teal-700 py-2 text-xs font-bold text-white hover:bg-teal-500 active:scale-95 touch-manipulation transition"
                           >
-                            <CheckCircle2 className="w-3.5 h-3.5 text-teal-400" />
+                            <CheckCircle2 className="w-4 h-4" />
                             <span>Action</span>
                           </button>
                         </div>
 
                         {/* 1-Click Schedule Chips on Mobile Card */}
-                        <div className="flex items-center gap-1.5 pt-1">
+                        <div className="grid grid-cols-3 gap-1.5 pt-0.5">
                           <button
                             disabled={isSchedulingThis}
                             onClick={() => handleQuickSchedule(q, 1)}
-                            className="flex-1 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-[11px] font-bold text-amber-300 text-center transition active:scale-95 disabled:opacity-50"
+                            className="min-h-[38px] rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-xs font-bold text-amber-300 text-center transition active:scale-95 touch-manipulation disabled:opacity-50"
                           >
                             Tomorrow
                           </button>
                           <button
                             disabled={isSchedulingThis}
                             onClick={() => handleQuickSchedule(q, 3)}
-                            className="flex-1 py-1.5 rounded-lg bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/40 text-[11px] font-bold text-teal-300 text-center transition active:scale-95 disabled:opacity-50"
+                            className="min-h-[38px] rounded-lg bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/40 text-xs font-bold text-teal-300 text-center transition active:scale-95 touch-manipulation disabled:opacity-50"
                           >
                             +3 Days
                           </button>
                           <button
                             onClick={() => onOpenNewFollowUpForQuotation(q.id)}
-                            className="py-1.5 px-2 rounded-lg bg-slate-800 border border-slate-700 text-[11px] font-semibold text-slate-300 text-center transition active:scale-95"
+                            className="min-h-[38px] rounded-lg bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-300 text-center transition active:scale-95 touch-manipulation"
                           >
                             + Custom
                           </button>

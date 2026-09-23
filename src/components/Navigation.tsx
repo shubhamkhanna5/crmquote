@@ -249,86 +249,97 @@ export const Navigation: React.FC<NavigationProps> = ({
         </div>
       </aside>
 
-      {/* Mobile Bottom Navigation Bar (md:hidden) - PRD Section 63 */}
+      {/* Mobile Bottom Navigation Bar (md:hidden) - Optimized for Phone Ergonomics */}
       <nav
         id="mobile-bottom-nav"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-slate-200 bg-white/95 px-2 backdrop-blur-md shadow-lg"
+        aria-label="Mobile navigation"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-slate-200/90 bg-white/95 px-1 backdrop-blur-md shadow-lg mb-safe"
       >
+        {/* 1. My Day */}
         <button
           id="mobile-nav-today"
+          type="button"
           onClick={() => onTabChange('today')}
-          className={`flex flex-col items-center justify-center gap-0.5 py-1 min-w-[54px] ${
-            activeTab === 'today' ? 'text-cyan-600 font-semibold' : 'text-slate-500'
+          className={`flex flex-1 flex-col items-center justify-center gap-1 py-1 min-h-[50px] touch-manipulation transition-colors ${
+            activeTab === 'today'
+              ? 'text-teal-700 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
           }`}
         >
           <div className="relative">
-            <CheckCircle2 className="w-5 h-5" />
+            <CheckCircle2 className={`w-5 h-5 ${activeTab === 'today' ? 'stroke-[2.5]' : ''}`} />
             {totalPendingAction > 0 && (
-              <span className="absolute -top-1 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">
+              <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white shadow-xs">
                 {totalPendingAction}
               </span>
             )}
           </div>
-          <span className="text-[11px] font-medium">My Day</span>
+          <span className="text-[11px] leading-none tracking-tight">My Day</span>
+          {activeTab === 'today' && <span className="h-0.5 w-4 rounded-full bg-teal-600" />}
         </button>
 
+        {/* 2. Quotations */}
         <button
           id="mobile-nav-quotes"
+          type="button"
           onClick={() => onTabChange('quotations')}
-          className={`flex flex-col items-center justify-center gap-0.5 py-1 min-w-[54px] ${
-            activeTab === 'quotations' ? 'text-cyan-600 font-semibold' : 'text-slate-500'
+          className={`flex flex-1 flex-col items-center justify-center gap-1 py-1 min-h-[50px] touch-manipulation transition-colors ${
+            activeTab === 'quotations'
+              ? 'text-teal-700 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <FileSpreadsheet className="w-5 h-5" />
-          <span className="text-[11px] font-medium">Quotes</span>
+          <FileSpreadsheet className={`w-5 h-5 ${activeTab === 'quotations' ? 'stroke-[2.5]' : ''}`} />
+          <span className="text-[11px] leading-none tracking-tight">Quotes</span>
+          {activeTab === 'quotations' && <span className="h-0.5 w-4 rounded-full bg-teal-600" />}
         </button>
 
-        {/* Center Primary Action Button */}
-        <button
-          id="mobile-nav-action-new"
-          onClick={onOpenNewFollowUp}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-cyan-600 text-white shadow-md shadow-cyan-600/30 active:scale-95 transition"
-          title="Schedule New Follow-up"
-        >
-          <PlusCircle className="w-6 h-6" />
-        </button>
-
+        {/* 3. Clients */}
         <button
           id="mobile-nav-clients"
+          type="button"
           onClick={() => onTabChange('clients')}
-          className={`flex flex-col items-center justify-center gap-0.5 py-1 min-w-[54px] ${
-            activeTab === 'clients' ? 'text-cyan-600 font-semibold' : 'text-slate-500'
+          className={`flex flex-1 flex-col items-center justify-center gap-1 py-1 min-h-[50px] touch-manipulation transition-colors ${
+            activeTab === 'clients'
+              ? 'text-teal-700 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <Users className="w-5 h-5" />
-          <span className="text-[11px] font-medium">Clients</span>
+          <Users className={`w-5 h-5 ${activeTab === 'clients' ? 'stroke-[2.5]' : ''}`} />
+          <span className="text-[11px] leading-none tracking-tight">Clients</span>
+          {activeTab === 'clients' && <span className="h-0.5 w-4 rounded-full bg-teal-600" />}
         </button>
 
+        {/* 4. Calendar */}
+        <button
+          id="mobile-nav-calendar"
+          type="button"
+          onClick={() => onTabChange('calendar')}
+          className={`flex flex-1 flex-col items-center justify-center gap-1 py-1 min-h-[50px] touch-manipulation transition-colors ${
+            activeTab === 'calendar'
+              ? 'text-teal-700 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <CalendarDays className={`w-5 h-5 ${activeTab === 'calendar' ? 'stroke-[2.5]' : ''}`} />
+          <span className="text-[11px] leading-none tracking-tight">Calendar</span>
+          {activeTab === 'calendar' && <span className="h-0.5 w-4 rounded-full bg-teal-600" />}
+        </button>
+
+        {/* 5. Settings & Sync */}
         <button
           id="mobile-nav-settings"
+          type="button"
           onClick={() => onTabChange('settings')}
-          className={`flex flex-col items-center justify-center gap-0.5 py-1 min-w-[54px] ${
-            activeTab === 'settings' ? 'text-cyan-600 font-semibold' : 'text-slate-500'
+          className={`flex flex-1 flex-col items-center justify-center gap-1 py-1 min-h-[50px] touch-manipulation transition-colors ${
+            activeTab === 'settings'
+              ? 'text-teal-700 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <Settings className="w-5 h-5" />
-          <span className="text-[11px] font-medium">Settings</span>
-        </button>
-
-        {/* Mobile Quick User Switcher */}
-        <button
-          id="mobile-nav-switch-user"
-          onClick={() => {
-            const nextUser = activeUser === 'Pranjal' ? 'Shubham' : 'Pranjal';
-            onRequestSwitchUser(nextUser);
-          }}
-          className="flex flex-col items-center justify-center gap-0.5 py-1 min-w-[50px] text-cyan-600"
-          title={`Switch user (current: ${activeUser})`}
-        >
-          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-100 border border-cyan-300 text-[10px] font-bold text-cyan-700">
-            {activeUser[0]}
-          </div>
-          <span className="text-[10px] font-medium text-slate-700 truncate max-w-[48px]">{activeUser}</span>
+          <Settings className={`w-5 h-5 ${activeTab === 'settings' ? 'stroke-[2.5]' : ''}`} />
+          <span className="text-[11px] leading-none tracking-tight">Settings</span>
+          {activeTab === 'settings' && <span className="h-0.5 w-4 rounded-full bg-teal-600" />}
         </button>
       </nav>
     </>

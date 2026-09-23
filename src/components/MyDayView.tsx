@@ -962,7 +962,8 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
                       }`}
                     />
 
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pl-2">
+                    {/* Desktop Layout (hidden on mobile, visible on sm+) */}
+                    <div className="hidden sm:flex sm:items-center sm:justify-between gap-2 pl-2">
                       {/* Left: Checkbox + Client Name + Price + Temp */}
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
                         <input
@@ -1030,10 +1031,10 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
                         </div>
                       </div>
 
-                      {/* Right: Deadline + Actions */}
-                      <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                      {/* Right: Deadline + Desktop Actions */}
+                      <div className="flex items-center justify-end gap-2 shrink-0 pt-0">
                         {/* Deadline badge */}
-                        <div className="text-left sm:text-right">
+                        <div className="text-right">
                           <span
                             className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-md ${
                               isOverdue
@@ -1057,10 +1058,10 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
                           {rawPhone && (
                             <a
                               href={`tel:${rawPhone.replace(/\s+/g, '')}`}
-                              className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
+                              className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
                               title={`Call ${quote?.client_name}`}
                             >
-                              <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                              <Phone className="w-4 h-4 text-emerald-600" />
                             </a>
                           )}
 
@@ -1070,41 +1071,215 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
                               href={`https://wa.me/${waPhone}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="rounded-lg p-1.5 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition"
+                              className="rounded-lg p-2 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition"
                               title="Send WhatsApp message"
                             >
-                              <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                              <MessageCircle className="w-4 h-4 text-emerald-600" />
                             </a>
                           )}
 
                           {/* Reschedule Button */}
                           <button
                             onClick={() => onOpenRescheduleModal(item)}
-                            className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-teal-700 transition"
+                            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-teal-700 transition"
                             title="Reschedule follow-up"
                           >
-                            <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                            <Calendar className="w-4 h-4 text-slate-500" />
                           </button>
 
                           {/* Primary Action: Mark Done */}
                           <button
                             onClick={() => onOpenDoneModal(item)}
-                            className="flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 text-xs font-bold shadow-2xs transition active:scale-95 ml-1"
+                            className="flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold shadow-2xs transition active:scale-95 ml-1"
                           >
-                            <Check className="w-3.5 h-3.5" />
+                            <Check className="w-4 h-4" />
                             <span>Done</span>
                           </button>
 
                           {/* Expand chevron */}
                           <button
                             onClick={(e) => toggleExpand(item.id, e)}
-                            className="rounded-lg p-1 text-slate-400 hover:text-slate-600 transition ml-0.5"
+                            className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 transition ml-0.5"
                             title="Toggle details"
                           >
                             {isExpanded ? (
                               <ChevronDown className="w-4 h-4" />
                             ) : (
                               <ChevronRight className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Mobile Card Layout (sm:hidden) - Ergonomically designed for 320px-390px viewports */}
+                    <div className="sm:hidden flex flex-col gap-2 pl-1.5">
+                      {/* Row 1: Checkbox, Client Name, and Price */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onClick={(e) => handleToggleSelect(item.id, e)}
+                            onChange={() => {}}
+                            className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 shrink-0"
+                          />
+                          <span className="text-sm font-bold text-slate-900 truncate">
+                            {quote?.client_name || 'Client'}
+                          </span>
+                        </div>
+                        <span className="text-sm font-extrabold text-teal-800 font-mono tracking-tight shrink-0">
+                          {formatIndianCurrency(quote?.quotation_price || 0)}
+                        </span>
+                      </div>
+
+                      {/* Row 2: Metadata & Status Chips (wrapping gracefully) */}
+                      <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                        {/* Deadline Chip */}
+                        <span
+                          className={`inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md ${
+                            isOverdue
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              : isDueToday
+                              ? 'bg-teal-50 text-teal-700 border border-teal-200'
+                              : 'bg-slate-100 text-slate-700 border border-slate-200'
+                          }`}
+                        >
+                          <Clock className="w-3 h-3 shrink-0" />
+                          <span>
+                            {isOverdue ? 'Overdue: ' : isDueToday ? 'Today: ' : ''}
+                            {item.scheduled_date}
+                          </span>
+                          {item.scheduled_time && <span>· {item.scheduled_time}</span>}
+                        </span>
+
+                        {/* Temperature Badge */}
+                        {getTemperatureBadge(quote?.temperature)}
+
+                        {/* Location */}
+                        {quote && (
+                          <span className="inline-flex items-center gap-0.5 rounded bg-cyan-50 border border-cyan-100 px-1.5 py-0.5 font-semibold text-cyan-800 truncate max-w-[140px]">
+                            <MapPin className="w-2.5 h-2.5 text-cyan-600 shrink-0" />
+                            <span className="truncate">{getQuotationLocation(quote)}</span>
+                          </span>
+                        )}
+
+                        {/* Pool Specs */}
+                        <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-slate-700 font-medium truncate max-w-[130px]">
+                          {quote?.pool_type || 'Pool'}
+                          {quote?.pool_dimensions ? ` · 📏 ${quote.pool_dimensions}` : ''}
+                        </span>
+
+                        {/* High Priority */}
+                        {quote?.priority === 'high' && (
+                          <span className="rounded bg-rose-100 px-1.5 py-0.5 font-bold uppercase text-rose-800 text-[10px]">
+                            High
+                          </span>
+                        )}
+
+                        {/* Owner Tag */}
+                        {quote?.sender_name && (
+                          <span className="text-[10px] text-slate-500">
+                            Owner: {quote.sender_name}
+                          </span>
+                        )}
+
+                        {/* GCal link */}
+                        {item.calendar_event?.html_link && (
+                          <a
+                            href={item.calendar_event.html_link}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200"
+                          >
+                            <Calendar className="w-3 h-3 text-blue-600" />
+                            <span>GCal ↗</span>
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Notes (if present) */}
+                      {item.notes && (
+                        <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-100 rounded-lg p-1.5 italic line-clamp-2">
+                          "{item.notes}"
+                        </p>
+                      )}
+
+                      {/* Mobile Touch Action Area: 2 Tiers - Zero horizontal overflow */}
+                      <div
+                        className="mt-1 pt-2 border-t border-slate-100/90 flex flex-col gap-1.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {/* Tier 1: Primary Actions (Call, WhatsApp, Done) */}
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {rawPhone ? (
+                            <a
+                              href={`tel:${rawPhone.replace(/\s+/g, '')}`}
+                              className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-emerald-50 border border-emerald-200/90 py-2 text-xs font-bold text-emerald-800 active:scale-95 touch-manipulation transition shadow-2xs"
+                              title={`Call ${quote?.client_name}`}
+                            >
+                              <Phone className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span>Call</span>
+                            </a>
+                          ) : (
+                            <div className="min-h-[44px] flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-400">
+                              No Phone
+                            </div>
+                          )}
+
+                          {waPhone ? (
+                            <a
+                              href={`https://wa.me/${waPhone}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-emerald-600 border border-emerald-700 py-2 text-xs font-bold text-white active:scale-95 touch-manipulation transition shadow-2xs"
+                              title="Send WhatsApp message"
+                            >
+                              <MessageCircle className="w-4 h-4 shrink-0" />
+                              <span>WhatsApp</span>
+                            </a>
+                          ) : (
+                            <div className="min-h-[44px] flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-400">
+                              No WA
+                            </div>
+                          )}
+
+                          {/* Primary CTA: Done */}
+                          <button
+                            type="button"
+                            onClick={() => onOpenDoneModal(item)}
+                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-teal-600 hover:bg-teal-700 py-2 text-xs font-bold text-white active:scale-95 touch-manipulation transition shadow-2xs"
+                            title="Complete Follow-Up"
+                          >
+                            <Check className="w-4 h-4 stroke-[2.5]" />
+                            <span>Done</span>
+                          </button>
+                        </div>
+
+                        {/* Tier 2: Reschedule & Details */}
+                        <div className="flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onOpenRescheduleModal(item)}
+                            className="flex-1 min-h-[38px] flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 py-1 px-3 text-xs font-semibold text-slate-700 active:scale-95 touch-manipulation transition shadow-2xs"
+                            title="Reschedule follow-up"
+                          >
+                            <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Reschedule</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => toggleExpand(item.id, e)}
+                            className="min-h-[38px] flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 py-1 px-3 text-xs font-medium text-slate-600 active:scale-95 touch-manipulation transition"
+                            title="Toggle details"
+                          >
+                            <span>{isExpanded ? 'Less' : 'Details'}</span>
+                            {isExpanded ? (
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronRight className="w-3.5 h-3.5" />
                             )}
                           </button>
                         </div>
@@ -1252,45 +1427,59 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
 
                     {/* Quick Action Footer */}
                     <div
-                      className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between gap-1.5"
+                      className="mt-3 pt-2.5 border-t border-slate-100 flex flex-col gap-1.5"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex items-center gap-1">
-                        {rawPhone && (
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {rawPhone ? (
                           <a
                             href={`tel:${rawPhone.replace(/\s+/g, '')}`}
-                            className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-emerald-50 border border-emerald-200/90 py-2 text-xs font-bold text-emerald-800 active:scale-95 touch-manipulation transition shadow-2xs"
                             title="Call"
                           >
-                            <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                            <Phone className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span>Call</span>
                           </a>
+                        ) : (
+                          <div className="min-h-[44px] flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-400">
+                            No Phone
+                          </div>
                         )}
-                        {waPhone && (
+                        {waPhone ? (
                           <a
                             href={`https://wa.me/${waPhone}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="rounded-lg border border-emerald-200 bg-emerald-50 p-1.5 text-emerald-700 hover:bg-emerald-100 transition shadow-2xs"
+                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-emerald-600 border border-emerald-700 py-2 text-xs font-bold text-white active:scale-95 touch-manipulation transition shadow-2xs"
                             title="WhatsApp"
                           >
-                            <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                            <MessageCircle className="w-4 h-4 shrink-0" />
+                            <span>WhatsApp</span>
                           </a>
+                        ) : (
+                          <div className="min-h-[44px] flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-400">
+                            No WA
+                          </div>
                         )}
                         <button
-                          onClick={() => onOpenRescheduleModal(item)}
-                          className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-700 hover:bg-slate-50 transition shadow-2xs"
-                          title="Reschedule"
+                          type="button"
+                          onClick={() => onOpenDoneModal(item)}
+                          className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-teal-600 hover:bg-teal-700 py-2 text-xs font-bold text-white active:scale-95 touch-manipulation transition shadow-2xs"
+                          title="Done"
                         >
-                          <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                          <Check className="w-4 h-4 stroke-[2.5]" />
+                          <span>Done</span>
                         </button>
                       </div>
 
                       <button
-                        onClick={() => onOpenDoneModal(item)}
-                        className="flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 text-xs font-bold shadow-2xs transition active:scale-95"
+                        type="button"
+                        onClick={() => onOpenRescheduleModal(item)}
+                        className="w-full min-h-[38px] flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 py-1 px-3 text-xs font-semibold text-slate-700 active:scale-95 touch-manipulation transition shadow-2xs"
+                        title="Reschedule"
                       >
-                        <Check className="w-3.5 h-3.5" />
-                        <span>✓ Done</span>
+                        <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Reschedule</span>
                       </button>
                     </div>
                   </div>
@@ -1400,17 +1589,17 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
 
                       {/* Contact & Stage Row */}
                       <div
-                        className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-2"
+                        className="mt-2.5 pt-2 border-t border-slate-100 flex flex-col gap-2"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="grid grid-cols-2 gap-1.5 sm:flex sm:items-center">
                           {phoneClean && (
                             <a
                               href={`tel:${phoneClean}`}
-                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition active:scale-95"
+                              className="min-h-[40px] flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition active:scale-95 touch-manipulation"
                               title={`Call ${q.client_name}`}
                             >
-                              <Phone className="w-3 h-3 text-emerald-600" />
+                              <Phone className="w-3.5 h-3.5 text-emerald-600" />
                               <span>Call</span>
                             </a>
                           )}
@@ -1418,39 +1607,42 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
                             href={waUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition active:scale-95"
+                            className="min-h-[40px] flex items-center justify-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition active:scale-95 touch-manipulation"
                             title="Send WhatsApp Follow-Up Template"
                           >
-                            <MessageCircle className="w-3 h-3 text-emerald-600" />
+                            <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
                             <span>WhatsApp</span>
                           </a>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2">
                           <button
                             type="button"
                             onClick={() => setActionModalQuote({ quote: q, initialType: 'Call' })}
-                            className="inline-flex items-center gap-1 rounded-lg border border-teal-200 bg-teal-50 px-2 py-1 text-xs font-semibold text-teal-700 hover:bg-teal-100 transition active:scale-95"
+                            className="flex-1 min-h-[38px] inline-flex items-center justify-center gap-1 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-100 transition active:scale-95 touch-manipulation"
                             title="Record Action Taken for this quotation"
                           >
-                            <CheckCircle2 className="w-3 h-3 text-teal-600" />
+                            <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
                             <span>Record Action</span>
                           </button>
-                        </div>
 
-                        {/* Quick Stage Dropdown */}
-                        <div className="relative">
-                          <select
-                            value={q.app_status}
-                            disabled={isUpdatingThis}
-                            onChange={(e) =>
-                              handleQuickUpdateStatus(q, e.target.value as AppStatus)
-                            }
-                            className="text-[11px] font-semibold rounded-lg border border-slate-200 bg-white py-1 px-1.5 text-slate-700 focus:outline-none focus:border-teal-500 cursor-pointer shadow-2xs"
-                          >
-                            {STAGE_OPTIONS.map((st) => (
-                              <option key={st.status} value={st.status}>
-                                {st.label}
-                              </option>
-                            ))}
-                          </select>
+                          {/* Quick Stage Dropdown */}
+                          <div className="relative shrink-0">
+                            <select
+                              value={q.app_status}
+                              disabled={isUpdatingThis}
+                              onChange={(e) =>
+                                handleQuickUpdateStatus(q, e.target.value as AppStatus)
+                              }
+                              className="min-h-[38px] text-[11px] font-semibold rounded-lg border border-slate-200 bg-white py-1 px-2 text-slate-700 focus:outline-none focus:border-teal-500 cursor-pointer shadow-2xs"
+                            >
+                              {STAGE_OPTIONS.map((st) => (
+                                <option key={st.status} value={st.status}>
+                                  {st.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
                       </div>
                     </div>

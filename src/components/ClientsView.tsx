@@ -225,20 +225,31 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               >
                 <a
                   href={`tel:${client.phone.replace(/\s+/g, '')}`}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs"
+                  className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 active:scale-95 touch-manipulation shadow-2xs transition"
                 >
-                  <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                  <Phone className="w-4 h-4 text-emerald-600" />
                   <span>Call</span>
                 </a>
                 <a
                   href={`https://wa.me/${client.phone.replace(/\D/g, '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 shadow-xs"
+                  className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 py-2.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 active:scale-95 touch-manipulation shadow-2xs transition"
                 >
-                  <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  <MessageCircle className="w-4 h-4 text-emerald-600" />
                   <span>WhatsApp</span>
                 </a>
+                {onOpenNewQuotation && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenNewQuotation(client.id)}
+                    className="min-h-[44px] px-3 flex items-center justify-center gap-1 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 text-xs font-bold active:scale-95 touch-manipulation transition"
+                    title="Create new quote for this client"
+                  >
+                    <Plus className="w-4 h-4 text-teal-600" />
+                    <span className="hidden xs:inline">Quote</span>
+                  </button>
+                )}
               </div>
             </div>
           );

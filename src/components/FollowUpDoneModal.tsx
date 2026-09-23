@@ -76,10 +76,13 @@ export const FollowUpDoneModal: React.FC<FollowUpDoneModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs overflow-y-auto">
-      <div className="relative w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl text-slate-100 my-8">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 sm:p-4 backdrop-blur-xs overflow-y-auto">
+      <div className="relative w-full max-w-lg rounded-t-3xl sm:rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl text-slate-100 my-0 sm:my-8 max-h-[92vh] flex flex-col animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 sm:fade-in duration-200">
+        {/* Mobile handle indicator */}
+        <div className="sm:hidden mx-auto mt-2 h-1.5 w-12 rounded-full bg-slate-700 shrink-0" />
+
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 p-4 sm:p-5">
+        <div className="flex items-center justify-between border-b border-slate-800 p-4 sm:p-5 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
               <CheckCircle className="w-5 h-5" />
@@ -92,15 +95,16 @@ export const FollowUpDoneModal: React.FC<FollowUpDoneModalProps> = ({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-5">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-5 overflow-y-auto">
           {/* 1. Outcome Section (PRD Section 40 & 41) */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">

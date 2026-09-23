@@ -33,7 +33,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     (f) => !isTrialRecord(f.quotation?.client_name, f.quotation?.contact_number)
   );
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'month' | 'agenda'>('month');
+  const [viewMode, setViewMode] = useState<'month' | 'agenda'>(() =>
+    typeof window !== 'undefined' && window.innerWidth < 640 ? 'agenda' : 'month'
+  );
 
   // Month navigation
   const year = currentDate.getFullYear();
@@ -129,7 +131,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <span className="text-sm sm:text-base font-bold text-white min-w-[140px] text-center">
+          <span className="text-sm sm:text-base font-bold text-white px-1 text-center truncate">
             {monthName}
           </span>
           <button
@@ -290,22 +292,22 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 mt-2 sm:mt-0">
                         {f.status === 'Completed' ? (
-                          <span className="text-[11px] text-emerald-400 font-medium">
+                          <span className="text-xs text-emerald-400 font-semibold px-2 py-1 rounded-lg bg-emerald-950/40 border border-emerald-800">
                             ✓ Completed
                           </span>
                         ) : (
                           <>
                             <button
                               onClick={() => onOpenDoneModal(f)}
-                              className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-emerald-500"
+                              className="flex-1 sm:flex-initial min-h-[44px] flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 active:scale-95 touch-manipulation shadow-2xs transition"
                             >
                               ✓ Done
                             </button>
                             <button
                               onClick={() => onOpenRescheduleModal(f)}
-                              className="rounded-lg border border-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800"
+                              className="flex-1 sm:flex-initial min-h-[44px] flex items-center justify-center rounded-xl border border-slate-700 bg-slate-800/80 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 active:scale-95 touch-manipulation transition"
                             >
                               Reschedule
                             </button>
