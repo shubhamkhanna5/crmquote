@@ -12,6 +12,14 @@ function getApp() {
 
 export default function handler(req: IncomingMessage, res: ServerResponse) {
   try {
+    const customReq = req as any;
+    // If Vercel or a proxy rewrote the request to /api, recover original path
+    if (customReq.url === '/api' || customReq.url === '/' || customReq.url?.startsWith('/api?')) {
+      const originalPath = customReq.headers?.['x-matched-path'] || customReq.headers?.['x-now-route-matches'];
+      if (typeof originalPath === 'string' && originalPath.startsWith('/api/')) {
+        customReq.url = originalPath;
+      }
+    }
     const app = getApp();
     return app(req, res);
   } catch (err: any) {
