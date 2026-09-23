@@ -1,0 +1,6 @@
+{
+  "name": "Quotation Follow-Up Manager",
+  "description": "A mobile-first web application that synchronizes quotation data from Google Sheets into Supabase and provides a shared quotation follow-up CRM accessible from laptop and phone.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

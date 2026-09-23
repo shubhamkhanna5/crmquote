@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="cyanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <rect x="36" y="36" width="440" height="440" rx="90" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="4"/>
+  <!-- Pool water wave / quotation symbol -->
+  <path d="M120 180 C120 140, 160 140, 180 170 C195 190, 200 230, 150 250 L130 255 L130 290 L170 290 C220 290, 240 240, 240 180 C240 120, 190 90, 140 90 C90 90, 70 140, 70 180 Z" fill="url(#cyanGrad) opacity="0.2" />
+  <!-- Card board representing quotation -->
+  <rect x="110" y="110" width="292" height="300" rx="28" fill="#1e293b" stroke="#334155" stroke-width="6"/>
+  <!-- Top header bar of card -->
+  <rect x="110" y="110" width="292" height="64" rx="28" fill="url(#cyanGrad)"/>
+  <rect x="110" y="150" width="292" height="24" fill="url(#cyanGrad)"/>
+  <!-- Checkmark / Follow-up symbol -->
+  <circle cx="160" cy="230" r="22" fill="#0284c7" fill-opacity="0.2"/>
+  <path d="M150 230 L158 238 L172 222" fill="none" stroke="#38bdf8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Line indicators -->
+  <rect x="195" y="222" width="165" height="16" rx="8" fill="#e2e8f0"/>
+  <!-- Second item -->
+  <circle cx="160" cy="295" r="22" fill="#f59e0b" fill-opacity="0.2"/>
+  <path d="M150 295 L158 303 L172 287" fill="none" stroke="#fbbf24" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="195" y="287" width="130" height="16" rx="8" fill="#cbd5e1"/>
+  <!-- Third item -->
+  <circle cx="160" cy="360" r="22" fill="#10b981" fill-opacity="0.2"/>
+  <path d="M150 360 L158 368 L172 352" fill="none" stroke="#34d399" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="195" y="352" width="150" height="16" rx="8" fill="#94a3b8"/>
+  <!-- Small currency badge ₹ -->
+  <rect x="310" y="125" width="70" height="34" rx="17" fill="#ffffff" fill-opacity="0.2"/>
+  <text x="345" y="149" fill="#ffffff" font-size="22" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">₹</text>
+</svg>

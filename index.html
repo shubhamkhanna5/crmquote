@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script>
+      // Filter benign Vite HMR websocket connection errors in AI Studio iframe preview
+      (function() {
+        var origError = console.error;
+        console.error = function() {
+          var msg = arguments[0];
+          if (
+            typeof msg === 'string' &&
+            (msg.indexOf('websocket') !== -1 ||
+             msg.indexOf('WebSocket') !== -1 ||
+             msg.indexOf('server connection lost') !== -1 ||
+             msg.indexOf('failed to connect') !== -1 ||
+             msg.indexOf('vite-plugin-pwa') !== -1)
+          ) {
+            console.debug.apply(console, arguments);
+            return;
+          }
+          origError.apply(console, arguments);
+        };
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Quotation Follow-Up Manager</title>
+    <meta name="description" content="A mobile-first web application that synchronizes quotation data from Google Sheets into Supabase and provides a shared quotation follow-up CRM accessible from laptop and phone." />
+    <meta property="og:title" content="Quotation Follow-Up Manager" />
+    <meta property="og:description" content="A mobile-first web application that synchronizes quotation data from Google Sheets into Supabase and provides a shared quotation follow-up CRM accessible from laptop and phone." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="QuoteFollowUp" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
