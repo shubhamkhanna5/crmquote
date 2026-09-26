@@ -237,10 +237,35 @@ export class SyncService {
           const existingQuotation = db.findQuotationBySourceId(sourceId, workspaceId);
 
           if (existingQuotation) {
-            // Existing quotation in database/Supabase:
-            // Explicit directive: "only update if there is a new quotation apart from that dont use the google sheet"
-            // Do NOT overwrite user-edited status, follow-up schedules, or notes with Google Sheet data.
-            unchangedCount++;
+            // User requested: "also check if the google sheet has been updated and when updated fix it update it here also"
+            // Update Google Sheet specifications without overwriting user-managed CRM follow-up stages or private notes
+            const { changed } = db.updateQuotationSheetFields(
+              existingQuotation.id,
+              {
+                client_name: clientName,
+                quotation_price: quotationPrice,
+                sender_name: senderName,
+                pool_dimensions: poolDimensions,
+                pool_type: poolType,
+                contact_number: phoneObj.display || phoneObj.normalized,
+                contact_number_raw: phoneObj.raw,
+                source_status: sourceStatus,
+                source_last_seen_at: now,
+                source_updated_at: now,
+                source_present: true,
+              },
+              workspaceId
+            );
+
+            if (!existingQuotation.location && inferredLocation) {
+              db.updateQuotationAppFields(existingQuotation.id, { location: inferredLocation }, workspaceId);
+            }
+
+            if (changed) {
+              updatedCount++;
+            } else {
+              unchangedCount++;
+            }
             continue;
           }
 
@@ -280,7 +305,7 @@ export class SyncService {
                 scheduled_date: sheetFollowUpDate,
                 scheduled_time: defaultTime,
                 type: 'Call',
-                notes: rawNextAction ? `Sheet next action: ${rawNextAction}` : 'Follow-up date from Google Sheet',
+                notes: rawNextAction ? rawNextAction.trim() : null,
               },
               workspaceId
             );
@@ -297,7 +322,7 @@ export class SyncService {
                   scheduled_date: targetDateStr,
                   scheduled_time: defaultTime,
                   type: 'Call',
-                  notes: 'Day 3 follow-up',
+                  notes: null,
                 },
                 workspaceId
               );

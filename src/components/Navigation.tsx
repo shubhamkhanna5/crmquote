@@ -48,30 +48,42 @@ export const Navigation: React.FC<NavigationProps> = ({
 
   return (
     <>
-      {/* Desktop Sidebar (md:flex) */}
+      {/* macOS Desktop Sidebar (md:flex) */}
       <aside
         id="desktop-sidebar"
-        className="hidden md:flex w-56 lg:w-60 shrink-0 flex-col border-r border-slate-200/80 bg-white text-slate-700"
+        className="hidden md:flex w-56 lg:w-64 shrink-0 flex-col border-r border-slate-200/80 macos-glass text-slate-700 select-none"
       >
-        {/* Brand Header */}
-        <div className="flex items-center gap-2.5 px-4 py-3.5 border-b border-slate-100">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-600 text-white shadow-xs">
-            <Layers className="w-4 h-4" />
+        {/* macOS Window Traffic Lights & App Brand Header */}
+        <div className="px-4 pt-3.5 pb-3 border-b border-black/[0.06]">
+          {/* Traffic Lights */}
+          <div className="flex items-center gap-1.5 mb-3" aria-hidden="true">
+            <span className="h-3 w-3 rounded-full bg-[#FF5F56] border border-black/10 inline-block shadow-2xs hover:opacity-80 transition cursor-pointer" />
+            <span className="h-3 w-3 rounded-full bg-[#FFBD2E] border border-black/10 inline-block shadow-2xs hover:opacity-80 transition cursor-pointer" />
+            <span className="h-3 w-3 rounded-full bg-[#27C93F] border border-black/10 inline-block shadow-2xs hover:opacity-80 transition cursor-pointer" />
           </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xs font-bold text-slate-900 tracking-tight truncate uppercase">
-              Quotation CRM
-            </h1>
-            <p className="text-[11px] text-slate-500 truncate flex items-center gap-1">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Follow-Up Hub
-            </p>
+
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-b from-[#007AFF] to-[#0051C7] text-white shadow-xs">
+              <Layers className="w-4 h-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xs font-bold text-slate-900 tracking-tight truncate">
+                Quotation Queue
+              </h1>
+              <p className="text-[11px] text-slate-500 truncate flex items-center gap-1">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#34C759]" />
+                macOS Workspace
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* User Profile Switcher Widget */}
-        <div className="px-3 py-2 border-b border-slate-100 bg-slate-50/60">
-          <div className="grid grid-cols-2 gap-1 p-0.5 rounded-lg bg-white border border-slate-200/70 shadow-xs">
+        {/* macOS Segmented User Profile Switcher */}
+        <div className="px-3 py-2.5 border-b border-black/[0.06] bg-slate-100/50">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-1 mb-1.5">
+            Active Salesperson
+          </div>
+          <div className="grid grid-cols-2 gap-1 p-0.5 rounded-lg bg-black/[0.06] shadow-inner">
             <button
               id="switch-to-pranjal-btn"
               type="button"
@@ -82,8 +94,8 @@ export const Navigation: React.FC<NavigationProps> = ({
               }}
               className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-md text-xs font-semibold transition ${
                 activeUser === 'Pranjal'
-                  ? 'bg-teal-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
               <span>Pranjal</span>
@@ -100,8 +112,8 @@ export const Navigation: React.FC<NavigationProps> = ({
               }}
               className={`flex items-center justify-center gap-1 py-1 px-1.5 rounded-md text-xs font-semibold transition ${
                 activeUser === 'Shubham'
-                  ? 'bg-teal-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
               <span>Shubham</span>
@@ -110,15 +122,19 @@ export const Navigation: React.FC<NavigationProps> = ({
           </div>
         </div>
 
-        {/* Navigation Items */}
+        {/* macOS Sidebar Navigation Items */}
         <nav className="flex-1 space-y-0.5 p-2.5">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-2 pt-1 pb-1">
+            Views
+          </div>
+
           <button
             id="nav-tab-today"
             onClick={() => onTabChange('today')}
-            className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs font-semibold transition ${
+            className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
               activeTab === 'today'
-                ? 'bg-teal-600 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                ? 'bg-[#007AFF] text-white shadow-xs'
+                : 'text-slate-700 hover:bg-black/[0.04] hover:text-slate-900'
             }`}
           >
             <div className="flex items-center gap-2.5">
@@ -128,9 +144,11 @@ export const Navigation: React.FC<NavigationProps> = ({
             {totalPendingAction > 0 && (
               <span
                 className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                  overdueCount > 0
-                    ? 'bg-rose-500 text-white'
-                    : 'bg-amber-500 text-white'
+                  activeTab === 'today'
+                    ? 'bg-white/30 text-white'
+                    : overdueCount > 0
+                    ? 'bg-[#FF3B30] text-white'
+                    : 'bg-[#FF9500] text-white'
                 }`}
               >
                 {totalPendingAction}
@@ -141,10 +159,10 @@ export const Navigation: React.FC<NavigationProps> = ({
           <button
             id="nav-tab-quotations"
             onClick={() => onTabChange('quotations')}
-            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-semibold transition ${
+            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
               activeTab === 'quotations'
-                ? 'bg-teal-600 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                ? 'bg-[#007AFF] text-white shadow-xs'
+                : 'text-slate-700 hover:bg-black/[0.04] hover:text-slate-900'
             }`}
           >
             <FileSpreadsheet className="w-4 h-4 shrink-0" />
@@ -154,10 +172,10 @@ export const Navigation: React.FC<NavigationProps> = ({
           <button
             id="nav-tab-clients"
             onClick={() => onTabChange('clients')}
-            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-semibold transition ${
+            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
               activeTab === 'clients'
-                ? 'bg-teal-600 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                ? 'bg-[#007AFF] text-white shadow-xs'
+                : 'text-slate-700 hover:bg-black/[0.04] hover:text-slate-900'
             }`}
           >
             <Users className="w-4 h-4 shrink-0" />
@@ -167,23 +185,27 @@ export const Navigation: React.FC<NavigationProps> = ({
           <button
             id="nav-tab-calendar"
             onClick={() => onTabChange('calendar')}
-            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-semibold transition ${
+            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
               activeTab === 'calendar'
-                ? 'bg-teal-600 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                ? 'bg-[#007AFF] text-white shadow-xs'
+                : 'text-slate-700 hover:bg-black/[0.04] hover:text-slate-900'
             }`}
           >
             <CalendarDays className="w-4 h-4 shrink-0" />
             <span>Calendar</span>
           </button>
 
+          <div className="pt-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-2 pb-1">
+            System
+          </div>
+
           <button
             id="nav-tab-settings"
             onClick={() => onTabChange('settings')}
-            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-semibold transition ${
+            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
               activeTab === 'settings'
-                ? 'bg-teal-600 text-white shadow-xs'
-                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                ? 'bg-[#007AFF] text-white shadow-xs'
+                : 'text-slate-700 hover:bg-black/[0.04] hover:text-slate-900'
             }`}
           >
             <Settings className="w-4 h-4 shrink-0" />
@@ -191,26 +213,26 @@ export const Navigation: React.FC<NavigationProps> = ({
           </button>
         </nav>
 
-        {/* New Action Button */}
+        {/* macOS Action Push Button */}
         <div className="px-2.5 pb-2">
           <button
             id="btn-sidebar-new-followup"
             onClick={onOpenNewFollowUp}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-teal-50 border border-teal-200/80 px-2.5 py-1.5 text-xs font-bold text-teal-700 hover:bg-teal-100 transition active:scale-98 shadow-2xs"
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-white border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-50 transition active:scale-[0.98] shadow-2xs"
           >
-            <PlusCircle className="w-3.5 h-3.5" />
+            <PlusCircle className="w-3.5 h-3.5 text-[#007AFF]" />
             <span>Schedule Follow-Up</span>
           </button>
         </div>
 
-        {/* Sync Status Card & Quick Sync */}
-        <div className="p-2.5 border-t border-slate-100 space-y-2">
-          <div className="rounded-lg border border-slate-200/70 bg-slate-50/80 p-2 text-xs">
+        {/* macOS Status Card */}
+        <div className="p-2.5 border-t border-black/[0.06] space-y-2 bg-slate-100/40">
+          <div className="rounded-lg border border-slate-200/80 bg-white/90 p-2 text-xs shadow-2xs">
             <div className="flex items-center justify-between text-slate-500 mb-1">
               <span className="font-semibold text-slate-800 text-[11px] flex items-center gap-1.5">
                 <span
                   className={`h-2 w-2 rounded-full ${
-                    isSyncing ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'
+                    isSyncing ? 'bg-[#FF9500] animate-ping' : 'bg-[#34C759]'
                   }`}
                 />
                 Google Sheet
@@ -219,7 +241,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                 id="btn-sidebar-sync-now"
                 onClick={onQuickSync}
                 disabled={isSyncing}
-                className="text-teal-600 hover:text-teal-700 transition p-0.5 disabled:opacity-50"
+                className="text-[#007AFF] hover:text-blue-700 transition p-0.5 disabled:opacity-50"
                 title="Sync now from Google Sheet"
               >
                 <RotateCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -236,7 +258,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             {latestSync && (
               <div className="mt-0.5 flex items-center justify-between text-[10px] text-slate-400 font-mono">
                 <span>{latestSync.rows_found} rows</span>
-                <span className="text-emerald-600 font-medium">✓ Synced</span>
+                <span className="text-[#34C759] font-medium">✓ Synced</span>
               </div>
             )}
           </div>
@@ -249,33 +271,34 @@ export const Navigation: React.FC<NavigationProps> = ({
         </div>
       </aside>
 
-      {/* Mobile Bottom Navigation Bar (md:hidden) - Optimized for Phone Ergonomics */}
+      {/* iOS Mobile Bottom Navigation Bar (md:hidden) - Authentic Cupertino HIG Style */}
       <nav
         id="mobile-bottom-nav"
-        aria-label="Mobile navigation"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-slate-200/90 bg-white/95 px-1 backdrop-blur-md shadow-lg mb-safe"
+        aria-label="iOS Mobile Navigation"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-black/[0.08] ios-nav-glass px-1 py-1 pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.03)]"
       >
         {/* 1. My Day */}
         <button
           id="mobile-nav-today"
           type="button"
           onClick={() => onTabChange('today')}
-          className={`flex flex-1 flex-col items-center justify-center gap-1 py-1 min-h-[50px] touch-manipulation transition-colors ${
+          className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-0.5 min-h-[44px] touch-manipulation ios-tap-active ${
             activeTab === 'today'
-              ? 'text-teal-700 font-bold'
-              : 'text-slate-500 hover:text-slate-800'
+              ? 'text-[#007AFF]'
+              : 'text-[#8E8E93] hover:text-slate-700'
           }`}
         >
           <div className="relative">
-            <CheckCircle2 className={`w-5 h-5 ${activeTab === 'today' ? 'stroke-[2.5]' : ''}`} />
+            <CheckCircle2 className={`w-5 h-5 ${activeTab === 'today' ? 'stroke-[2.5]' : 'stroke-[1.75]'}`} />
             {totalPendingAction > 0 && (
-              <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white shadow-xs">
+              <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FF3B30] px-1 text-[9px] font-black text-white shadow-2xs border border-white">
                 {totalPendingAction}
               </span>
             )}
           </div>
-          <span className="text-[11px] leading-none tracking-tight">My Day</span>
-          {activeTab === 'today' && <span className="h-0.5 w-4 rounded-full bg-teal-600" />}
+          <span className={`text-[10px] tracking-tight ${activeTab === 'today' ? 'font-semibold' : 'font-medium'}`}>
+            My Day
+          </span>
         </button>
 
         {/* 2. Quotations */}
@@ -283,15 +306,16 @@ export const Navigation: React.FC<NavigationProps> = ({
           id="mobile-nav-quotes"
           type="button"
           onClick={() => onTabChange('quotations')}
-          className={`flex flex-1 flex-col items-center justify-center gap-1 py-1 min-h-[50px] touch-manipulation transition-colors ${
+          className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-0.5 min-h-[44px] touch-manipulation ios-tap-active ${
             activeTab === 'quotations'
-              ? 'text-teal-700 font-bold'
-              : 'text-slate-500 hover:text-slate-800'
+              ? 'text-[#007AFF]'
+              : 'text-[#8E8E93] hover:text-slate-700'
           }`}
         >
-          <FileSpreadsheet className={`w-5 h-5 ${activeTab === 'quotations' ? 'stroke-[2.5]' : ''}`} />
-          <span className="text-[11px] leading-none tracking-tight">Quotes</span>
-          {activeTab === 'quotations' && <span className="h-0.5 w-4 rounded-full bg-teal-600" />}
+          <FileSpreadsheet className={`w-5 h-5 ${activeTab === 'quotations' ? 'stroke-[2.5]' : 'stroke-[1.75]'}`} />
+          <span className={`text-[10px] tracking-tight ${activeTab === 'quotations' ? 'font-semibold' : 'font-medium'}`}>
+            Quotes
+          </span>
         </button>
 
         {/* 3. Clients */}
@@ -299,15 +323,16 @@ export const Navigation: React.FC<NavigationProps> = ({
           id="mobile-nav-clients"
           type="button"
           onClick={() => onTabChange('clients')}
-          className={`flex flex-1 flex-col items-center justify-center gap-1 py-1 min-h-[50px] touch-manipulation transition-colors ${
+          className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-0.5 min-h-[44px] touch-manipulation ios-tap-active ${
             activeTab === 'clients'
-              ? 'text-teal-700 font-bold'
-              : 'text-slate-500 hover:text-slate-800'
+              ? 'text-[#007AFF]'
+              : 'text-[#8E8E93] hover:text-slate-700'
           }`}
         >
-          <Users className={`w-5 h-5 ${activeTab === 'clients' ? 'stroke-[2.5]' : ''}`} />
-          <span className="text-[11px] leading-none tracking-tight">Clients</span>
-          {activeTab === 'clients' && <span className="h-0.5 w-4 rounded-full bg-teal-600" />}
+          <Users className={`w-5 h-5 ${activeTab === 'clients' ? 'stroke-[2.5]' : 'stroke-[1.75]'}`} />
+          <span className={`text-[10px] tracking-tight ${activeTab === 'clients' ? 'font-semibold' : 'font-medium'}`}>
+            Clients
+          </span>
         </button>
 
         {/* 4. Calendar */}
@@ -315,31 +340,33 @@ export const Navigation: React.FC<NavigationProps> = ({
           id="mobile-nav-calendar"
           type="button"
           onClick={() => onTabChange('calendar')}
-          className={`flex flex-1 flex-col items-center justify-center gap-1 py-1 min-h-[50px] touch-manipulation transition-colors ${
+          className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-0.5 min-h-[44px] touch-manipulation ios-tap-active ${
             activeTab === 'calendar'
-              ? 'text-teal-700 font-bold'
-              : 'text-slate-500 hover:text-slate-800'
+              ? 'text-[#007AFF]'
+              : 'text-[#8E8E93] hover:text-slate-700'
           }`}
         >
-          <CalendarDays className={`w-5 h-5 ${activeTab === 'calendar' ? 'stroke-[2.5]' : ''}`} />
-          <span className="text-[11px] leading-none tracking-tight">Calendar</span>
-          {activeTab === 'calendar' && <span className="h-0.5 w-4 rounded-full bg-teal-600" />}
+          <CalendarDays className={`w-5 h-5 ${activeTab === 'calendar' ? 'stroke-[2.5]' : 'stroke-[1.75]'}`} />
+          <span className={`text-[10px] tracking-tight ${activeTab === 'calendar' ? 'font-semibold' : 'font-medium'}`}>
+            Calendar
+          </span>
         </button>
 
-        {/* 5. Settings & Sync */}
+        {/* 5. Settings */}
         <button
           id="mobile-nav-settings"
           type="button"
           onClick={() => onTabChange('settings')}
-          className={`flex flex-1 flex-col items-center justify-center gap-1 py-1 min-h-[50px] touch-manipulation transition-colors ${
+          className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-0.5 min-h-[44px] touch-manipulation ios-tap-active ${
             activeTab === 'settings'
-              ? 'text-teal-700 font-bold'
-              : 'text-slate-500 hover:text-slate-800'
+              ? 'text-[#007AFF]'
+              : 'text-[#8E8E93] hover:text-slate-700'
           }`}
         >
-          <Settings className={`w-5 h-5 ${activeTab === 'settings' ? 'stroke-[2.5]' : ''}`} />
-          <span className="text-[11px] leading-none tracking-tight">Settings</span>
-          {activeTab === 'settings' && <span className="h-0.5 w-4 rounded-full bg-teal-600" />}
+          <Settings className={`w-5 h-5 ${activeTab === 'settings' ? 'stroke-[2.5]' : 'stroke-[1.75]'}`} />
+          <span className={`text-[10px] tracking-tight ${activeTab === 'settings' ? 'font-semibold' : 'font-medium'}`}>
+            Settings
+          </span>
         </button>
       </nav>
     </>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, X } from 'lucide-react';
+import { formatDDMMYYYY } from '../utils/dateUtils';
 
 interface BulkRescheduleModalProps {
   isOpen: boolean;
@@ -79,6 +80,11 @@ export const BulkRescheduleModal: React.FC<BulkRescheduleModalProps> = ({
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
               required
             />
+            {scheduledDate && (
+              <span className="text-[11px] text-cyan-700 font-mono mt-1 block">
+                Target Date: {formatDDMMYYYY(scheduledDate)}
+              </span>
+            )}
           </div>
 
           <div>

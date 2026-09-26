@@ -4,7 +4,10 @@ import {
   AlertCircle,
   Calendar,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock,
+  FileSpreadsheet,
   Flame,
   MapPin,
   MessageCircle,
@@ -23,6 +26,7 @@ import {
   Priority,
   AppStatus,
 } from '../types';
+import { getActualNote } from '../utils/notesUtils';
 import { api } from '../services/api';
 import { formatIndianCurrency } from '../../server/normalizer';
 import { parsePoolDimensions } from '../utils/poolUtils';
@@ -39,6 +43,7 @@ import {
   TEMPERATURE_OPTIONS,
 } from '../utils/quotationActions';
 import { getQuotationLocation, POPULAR_LOCATIONS } from '../utils/locationUtils';
+import { formatDDMMYYYY, formatDateTimeDDMMYYYY } from '../utils/dateUtils';
 
 interface QuotationDetailModalProps {
   quotationId: string | null;
@@ -75,31 +80,41 @@ export const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [recordActionModalOpen, setRecordActionModalOpen] = useState(false);
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
 
   const loadDetails = React.useCallback(() => {
     if (!quotationId) return;
     setLoading(true);
+    setShowMoreDetails(false);
     api
       .getQuotationById(quotationId)
       .then((res) => {
-        setData(res);
-        setTemperature(res.quotation.temperature);
-        setPriority(res.quotation.priority);
-        setAppStatus(res.quotation.app_status);
-        setInternalNotes(res.quotation.internal_notes || '');
+        const q = res?.quotation || (res as any);
+        if (!q) throw new Error('Quotation not found');
+        setData({
+          quotation: q,
+          client: res.client || null,
+          followups: res.followups || [],
+          activities: res.activities || [],
+        });
+        setTemperature(q.temperature || 'warm');
+        setPriority(q.priority || 'normal');
+        setAppStatus(q.app_status || 'New');
+        setInternalNotes(q.internal_notes || '');
         const initialLoc =
-          res.quotation.location ||
+          q.location ||
           (res.client && res.client.location) ||
-          getQuotationLocation(res.quotation, res.client ? [res.client] : []);
+          getQuotationLocation(q, res.client ? [res.client] : []);
         setLocation(initialLoc || '');
         setHasChanges(false);
       })
       .catch((err) => {
-        alert(err.message || 'Failed to load quotation');
+        console.error('Failed to load quotation details:', err);
+        showToast(err.message || 'Failed to load quotation', 'error');
         onClose();
       })
       .finally(() => setLoading(false));
-  }, [quotationId, onClose]);
+  }, [quotationId, onClose, showToast]);
 
   useEffect(() => {
     loadDetails();
@@ -170,7 +185,7 @@ export const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({
         scheduled_date: scheduledDate,
         scheduled_time: '10:30',
         type: 'Call',
-        notes: 'Quick scheduled follow-up',
+        notes: null,
       });
       if (isGoogleCalendarConnected()) {
         const syncRes = await syncFollowUpToGoogleCalendar(newFup, q);
@@ -285,7 +300,7 @@ export const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({
               )}
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-500 mt-1 flex-wrap">
-              <span>Source ID: #{q?.source_id} · Quoted on {q?.quotation_date} ({q?.age_days} days ago)</span>
+              <span>Source ID: #{q?.source_id} · Quoted on {formatDDMMYYYY(q?.quotation_date)} ({q?.age_days} days ago)</span>
               {(location || q?.location) && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded-md border border-cyan-200">
                   <MapPin className="w-3 h-3 text-cyan-600" />
@@ -308,111 +323,65 @@ export const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({
           <div className="p-12 text-center text-slate-400">Loading quotation details...</div>
         ) : (
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
-            {/* Quick Stage & Temperature Action Bar */}
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-3.5 space-y-2.5 shadow-2xs">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    Lead Stage:
-                  </span>
-                  <div className="flex flex-wrap gap-1">
-                    {STAGE_OPTIONS.map((st) => {
-                      const isSelected = q.app_status === st.status;
-                      return (
-                        <button
-                          key={st.status}
-                          type="button"
-                          onClick={() => handleQuickSetStatus(st.status)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition active:scale-95 border ${
-                            isSelected
-                              ? `${st.color} shadow-xs ring-2 ring-teal-500/20`
-                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
-                          }`}
-                        >
-                          {st.label}
-                        </button>
-                      );
-                    })}
+            {/* Read-Only Google Sheet Specifications (Prominently displayed on actionable lead click) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-teal-600" />
+                  Google Sheet Specifications
+                </span>
+                <span className="text-[11px] text-teal-800 font-mono bg-teal-50 px-2 py-0.5 rounded border border-teal-200/80 font-semibold">
+                  Sync Read-Only
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5 sm:p-4 text-xs shadow-2xs">
+                <div>
+                  <span className="text-slate-500 font-medium">Quotation Price</span>
+                  <p className="text-base font-extrabold text-teal-700 mt-0.5 font-mono">
+                    {formatIndianCurrency(q.quotation_price)}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-medium">Pool Type</span>
+                  <p className="font-semibold text-slate-900 mt-0.5">{q.pool_type || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-medium">Pool Dimensions & Size</span>
+                  <div className="mt-0.5">
+                    {q.pool_dimensions ? (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-semibold text-slate-900">
+                          📏 {parsePoolDimensions(q.pool_dimensions)?.formatted || q.pool_dimensions}
+                        </span>
+                        {parsePoolDimensions(q.pool_dimensions)?.surfaceAreaSqFt ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-900 bg-teal-50 px-1.5 py-0.5 rounded w-fit border border-teal-200">
+                            {parsePoolDimensions(q.pool_dimensions)?.surfaceAreaSqFt} sq.ft ({parsePoolDimensions(q.pool_dimensions)?.surfaceAreaSqM} m²)
+                            {parsePoolDimensions(q.pool_dimensions)?.category ? ` · ${parsePoolDimensions(q.pool_dimensions)?.category}` : ''}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="font-semibold text-slate-900">—</span>
+                    )}
                   </div>
                 </div>
-
-                <div className="flex items-center gap-1.5 self-start sm:self-auto">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    Temp:
-                  </span>
-                  <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs">
-                    {TEMPERATURE_OPTIONS.map((t) => (
-                      <button
-                        key={t.temp}
-                        type="button"
-                        onClick={() => handleQuickSetTemperature(t.temp)}
-                        className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold transition active:scale-95 ${
-                          q.temperature === t.temp
-                            ? 'bg-slate-900 text-white shadow-2xs'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span>{t.icon}</span>
-                        <span className="capitalize">{t.temp}</span>
-                      </button>
-                    ))}
-                  </div>
+                <div>
+                  <span className="text-slate-500 font-medium">Sender / Salesperson</span>
+                  <p className="font-medium text-slate-700 mt-0.5">
+                    {q.sender_name || '—'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-medium">Phone (Raw)</span>
+                  <p className="font-mono text-slate-700 mt-0.5">
+                    {q.contact_number_raw || q.contact_number}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-medium">Sheet Status</span>
+                  <p className="font-mono font-semibold text-slate-700 mt-0.5">{q.source_status}</p>
                 </div>
               </div>
-            </div>
-
-            {/* Quick Action Contact Bar (PRD Section 55) */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-              <a
-                href={`tel:${q.contact_number.replace(/\s+/g, '')}`}
-                className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition active:scale-95 shadow-xs"
-              >
-                <Phone className="w-4 h-4 text-emerald-600" />
-                <span>Call Client</span>
-              </a>
-
-              <a
-                href={generateWhatsAppUrl(
-                  q.contact_number,
-                  q.client_name,
-                  q.pool_type,
-                  q.quotation_price
-                )}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 py-2.5 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition active:scale-95 shadow-xs"
-                title="Send pre-filled WhatsApp quotation template"
-              >
-                <MessageCircle className="w-4 h-4 text-emerald-600" />
-                <span>WhatsApp Quote</span>
-              </a>
-
-              <button
-                type="button"
-                onClick={() => setRecordActionModalOpen(true)}
-                className="flex items-center justify-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50 py-2.5 px-2 text-xs font-semibold text-teal-800 hover:bg-teal-100 transition active:scale-95 shadow-xs"
-                title="Record touchpoint or direct action taken"
-              >
-                <CheckCircle2 className="w-4 h-4 text-teal-600" />
-                <span>Record Action</span>
-              </button>
-
-              <button
-                onClick={handleExportICS}
-                className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition active:scale-95 shadow-xs"
-                title="Download .ics calendar event"
-              >
-                <Calendar className="w-4 h-4 text-cyan-600" />
-                <span>Add to Cal</span>
-              </button>
-
-              <button
-                onClick={() => onOpenNewFollowUpForQuotation(q.id)}
-                className="flex items-center justify-center gap-2 rounded-xl bg-cyan-600 py-2.5 px-3 text-xs font-semibold text-white hover:bg-cyan-700 transition active:scale-95 shadow-xs"
-              >
-                <Plus className="w-4 h-4" />
-                <span>+ Custom</span>
-              </button>
             </div>
 
             {/* Active Next Follow-Up Banner */}
@@ -441,12 +410,12 @@ export const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({
                 <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div>
                     <p className="text-sm font-bold text-slate-900">
-                      {activeFollowup.scheduled_date} at {activeFollowup.scheduled_time} (
+                      {formatDDMMYYYY(activeFollowup.scheduled_date)} at {activeFollowup.scheduled_time} (
                       {activeFollowup.type})
                     </p>
-                    {activeFollowup.notes && (
+                    {getActualNote(activeFollowup.notes) && (
                       <p className="text-xs text-slate-500 mt-1">
-                        Note: {activeFollowup.notes}
+                        Note: {getActualNote(activeFollowup.notes)}
                       </p>
                     )}
                     {activeFollowup.calendar_event?.html_link && (
@@ -461,38 +430,178 @@ export const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({
                       </a>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => onOpenDoneModal(activeFollowup)}
-                      className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition shadow-xs"
-                    >
-                      ✓ Mark Done
-                    </button>
-                    <button
-                      onClick={() => onOpenRescheduleModal(activeFollowup)}
-                      className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-xs"
-                    >
-                      Reschedule
-                    </button>
-                  </div>
                 </div>
               ) : (
-                <div className="mt-3 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-amber-700 flex items-center gap-1.5 font-medium">
-                      <AlertCircle className="w-4 h-4 text-amber-500" />
-                      No active follow-up scheduled for this quotation
-                    </span>
-                    <button
-                      onClick={() => onOpenNewFollowUpForQuotation(q.id)}
-                      className="text-xs font-semibold text-teal-700 hover:underline"
-                    >
-                      + Custom Date/Time
-                    </button>
-                  </div>
+                <div className="mt-2 text-xs text-slate-500">
+                  No active follow-up scheduled for this quotation.
+                </div>
+              )}
+            </div>
 
-                  {/* 1-Click Schedule Presets */}
-                  <div className="flex items-center gap-2 pt-1 flex-wrap">
+            {/* Primary Action Row: Call, WhatsApp, Done */}
+            <div className="grid grid-cols-3 gap-2">
+              <a
+                href={`tel:${q.contact_number.replace(/\s+/g, '')}`}
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 py-2.5 px-3 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition active:scale-95 shadow-xs"
+              >
+                <Phone className="w-4 h-4 text-emerald-600" />
+                <span>Call</span>
+              </a>
+
+              <a
+                href={generateWhatsAppUrl(
+                  q.contact_number,
+                  q.client_name,
+                  q.pool_type,
+                  q.quotation_price
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 rounded-xl bg-[#25D366] py-2.5 px-3 text-xs font-bold text-white hover:bg-[#20BD5A] transition active:scale-95 shadow-xs"
+                title="Send pre-filled WhatsApp quotation template"
+              >
+                <MessageCircle className="w-4 h-4 text-white" />
+                <span>WhatsApp</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (activeFollowup) {
+                    onOpenDoneModal(activeFollowup);
+                    onClose();
+                  } else {
+                    setRecordActionModalOpen(true);
+                  }
+                }}
+                className="flex items-center justify-center gap-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0066D6] py-2.5 px-3 text-xs font-bold text-white transition active:scale-95 shadow-xs"
+                title="Mark Done & Record Outcome"
+              >
+                <CheckCircle2 className="w-4 h-4 text-white stroke-[2.5]" />
+                <span>Done</span>
+              </button>
+            </div>
+
+            {/* More Actions, Stage Controls & History Toggle */}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setShowMoreDetails(!showMoreDetails)}
+                className="w-full py-2 px-3 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200/80 rounded-xl flex items-center justify-center gap-1.5 transition border border-slate-200/80"
+              >
+                {showMoreDetails ? (
+                  <>
+                    <ChevronUp className="w-4 h-4 text-slate-500" />
+                    <span>Hide Advanced Actions & History</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4 text-slate-500" />
+                    <span>More Actions, Stage Controls & History</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Collapsible Advanced Controls & Timeline */}
+            {showMoreDetails && (
+              <div className="space-y-4 pt-1 border-t border-slate-200/80">
+                {/* Quick Stage & Temperature Action Bar */}
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-3.5 space-y-2.5 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Lead Stage:
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {STAGE_OPTIONS.map((st) => {
+                          const isSelected = q.app_status === st.status;
+                          return (
+                            <button
+                              key={st.status}
+                              type="button"
+                              onClick={() => handleQuickSetStatus(st.status)}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition active:scale-95 border ${
+                                isSelected
+                                  ? `${st.color} shadow-xs ring-2 ring-teal-500/20`
+                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                              }`}
+                            >
+                              {st.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Temp:
+                      </span>
+                      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-2xs">
+                        {TEMPERATURE_OPTIONS.map((t) => (
+                          <button
+                            key={t.temp}
+                            type="button"
+                            onClick={() => handleQuickSetTemperature(t.temp)}
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold transition active:scale-95 ${
+                              (q?.temperature || temperature) === t.temp
+                                ? 'bg-slate-900 text-white shadow-2xs'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span>{t.icon}</span>
+                            <span className="capitalize">{t.temp}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Additional Action Tools */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRecordActionModalOpen(true)}
+                    className="flex items-center justify-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50 py-2.5 px-2 text-xs font-semibold text-teal-800 hover:bg-teal-100 transition active:scale-95 shadow-xs"
+                    title="Record touchpoint or direct action taken"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-teal-600" />
+                    <span>Record Action</span>
+                  </button>
+
+                  <button
+                    onClick={handleExportICS}
+                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2.5 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition active:scale-95 shadow-xs"
+                    title="Download .ics calendar event"
+                  >
+                    <Calendar className="w-4 h-4 text-cyan-600" />
+                    <span>Add to Cal (.ics)</span>
+                  </button>
+
+                  <button
+                    onClick={() => onOpenNewFollowUpForQuotation(q.id)}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-cyan-600 py-2.5 px-3 text-xs font-semibold text-white hover:bg-cyan-700 transition active:scale-95 shadow-xs"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>+ Custom Date</span>
+                  </button>
+
+                  {activeFollowup && (
+                    <button
+                      onClick={() => onOpenRescheduleModal(activeFollowup)}
+                      className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-xs flex items-center justify-center gap-1.5"
+                    >
+                      <Clock className="w-4 h-4 text-slate-500" />
+                      <span>Reschedule</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* 1-Click Schedule Presets */}
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
                       <Zap className="w-3.5 h-3.5 text-amber-500" />
                       1-Click Schedule (10:30 AM):
@@ -518,78 +627,8 @@ export const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({
                     >
                       In 1 Week
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setRecordActionModalOpen(true)}
-                      className="rounded-lg bg-teal-50 border border-teal-300 hover:bg-teal-100 text-teal-900 font-bold px-2.5 py-1 text-xs shadow-2xs transition active:scale-95 flex items-center gap-1"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
-                      <span>Record Action Taken</span>
-                    </button>
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* Read-Only Google Sheet Fields (PRD Section 54) */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Google Sheet Specifications
-                </span>
-                <span className="text-[11px] text-slate-500 font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                  Sync Read-Only
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 rounded-2xl border border-slate-200 bg-slate-50/50 p-4 text-xs">
-                <div>
-                  <span className="text-slate-500">Quotation Price</span>
-                  <p className="text-base font-extrabold text-cyan-700 mt-0.5">
-                    {formatIndianCurrency(q.quotation_price)}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-slate-500">Pool Type</span>
-                  <p className="font-semibold text-slate-900 mt-0.5">{q.pool_type || '—'}</p>
-                </div>
-                <div>
-                  <span className="text-slate-500">Pool Dimensions & Size</span>
-                  <div className="mt-0.5">
-                    {q.pool_dimensions ? (
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-semibold text-slate-900">
-                          📏 {parsePoolDimensions(q.pool_dimensions)?.formatted || q.pool_dimensions}
-                        </span>
-                        {parsePoolDimensions(q.pool_dimensions)?.surfaceAreaSqFt ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-cyan-800 bg-cyan-50 px-1.5 py-0.5 rounded w-fit border border-cyan-200">
-                            {parsePoolDimensions(q.pool_dimensions)?.surfaceAreaSqFt} sq.ft ({parsePoolDimensions(q.pool_dimensions)?.surfaceAreaSqM} m²)
-                            {parsePoolDimensions(q.pool_dimensions)?.category ? ` · ${parsePoolDimensions(q.pool_dimensions)?.category}` : ''}
-                          </span>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <span className="font-semibold text-slate-900">—</span>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-slate-500">Sender / Salesperson</span>
-                  <p className="font-medium text-slate-700 mt-0.5">
-                    {q.sender_name || '—'}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-slate-500">Phone (Raw)</span>
-                  <p className="font-mono text-slate-700 mt-0.5">
-                    {q.contact_number_raw || q.contact_number}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-slate-500">Sheet Status</span>
-                  <p className="font-mono text-slate-700 mt-0.5">{q.source_status}</p>
-                </div>
-              </div>
-            </div>
 
             {/* Editable App Fields (PRD Section 54) */}
             <div className="space-y-4 rounded-2xl border border-cyan-200 bg-cyan-50/30 p-4 sm:p-5">
@@ -753,10 +792,7 @@ export const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({
                       <span className="absolute -left-[19px] top-1 h-2 w-2 rounded-full bg-cyan-600" />
                       <p className="text-slate-800 font-medium">{act.description}</p>
                       <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                        {new Date(act.created_at).toLocaleString([], {
-                          dateStyle: 'medium',
-                          timeStyle: 'short',
-                        })}
+                        {formatDateTimeDDMMYYYY(act.created_at, new Date(act.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}
                       </p>
                     </div>
                   ))}
@@ -765,13 +801,15 @@ export const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({
             </div>
           </div>
         )}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-slate-100 p-4 sm:p-5 shrink-0 bg-slate-50/50">
           <div className="text-xs text-slate-500">
             Last seen in Sheet:{' '}
             {q?.source_last_seen_at
-              ? new Date(q.source_last_seen_at).toLocaleDateString()
+              ? formatDDMMYYYY(q.source_last_seen_at)
               : '—'}
           </div>
           <button

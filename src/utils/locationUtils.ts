@@ -44,93 +44,283 @@ const CITY_KEYWORDS: Array<{ keywords: string[]; label: string }> = [
     ],
   },
   {
-    label: 'Maharashtra & Goa',
+    label: 'Maharashtra',
     keywords: [
+      'maharashtra',
+      'mumbai',
+      'bombay',
       'pune',
-      'goa',
-      'panaji',
-      'panjim',
-      'margao',
-      'madgaon',
+      'nagpur',
+      'nashik',
+      'aurangabad',
+      'chhatrapati sambhajinagar',
+      'thane',
+      'navi mumbai',
+      'solapur',
+      'kolhapur',
       'alibaug',
       'alibag',
       'lonavala',
       'khandala',
       'mahabaleshwar',
-      'nagpur',
-      'nashik',
-      'aurangabad',
-      'kolhapur',
       'satara',
-      'solapur',
+      'panvel',
+      'kalyan',
+      'dombivli',
+      'vasai',
+      'virar',
+      'chembur',
+      'dadar',
+      'andheri',
+      'bandra',
     ],
   },
   {
-    label: 'Bangalore / Karnataka',
+    label: 'Goa',
     keywords: [
+      'goa',
+      'panaji',
+      'panjim',
+      'margao',
+      'madgaon',
+      'vasco',
+      'mapusa',
+      'ponda',
+      'candolim',
+      'calangute',
+      'baga',
+      'anjuna',
+      'vagator',
+      'morjim',
+      'ashwem',
+      'arambol',
+      'porvorim',
+      'colva',
+      'benaulim',
+      'palolem',
+    ],
+  },
+  {
+    label: 'Karnataka',
+    keywords: [
+      'karnataka',
+      'gokarna',
       'bangalore',
       'bengaluru',
       'mysore',
       'mysuru',
       'mangalore',
+      'mangaluru',
       'hubli',
+      'hubballi',
+      'dharwad',
+      'belgaum',
+      'belagavi',
+      'udupi',
+      'manipal',
+      'coorg',
+      'kodagu',
+      'madikeri',
+      'hampi',
+      'hospet',
+      'bellary',
+      'ballari',
+      'shimoga',
+      'shivamogga',
+      'davangere',
+      'davanagere',
+      'gulbarga',
+      'kalaburagi',
+      'tumkur',
+      'tumakuru',
+      'bidar',
+      'bijapur',
+      'vijayapura',
+      'raichur',
+      'chitradurga',
+      'karwar',
+      'chikmagalur',
+      'chikkamagaluru',
+      'kolar',
+      'mandya',
       'whitefield',
       'koramangala',
       'indiranagar',
       'sarjapur',
       'electronic city',
       'yelahanka',
+      'hebbal',
+      'jayanagar',
     ],
   },
   {
-    label: 'Hyderabad / Telangana',
+    label: 'Telangana',
     keywords: [
+      'telangana',
       'hyderabad',
       'secunderabad',
-      'telangana',
       'cyberabad',
       'gachibowli',
       'jubilee hills',
       'banjara hills',
       'madhapur',
       'kondapur',
+      'warangal',
+      'nizamabad',
+      'karimnagar',
     ],
   },
   {
-    label: 'Tamil Nadu / Chennai',
-    keywords: ['chennai', 'madras', 'coimbatore', 'madurai', 'ecr', 'omr', 'salem', 'trichy'],
+    label: 'Tamil Nadu',
+    keywords: [
+      'tamil nadu',
+      'tamilnadu',
+      'chennai',
+      'madras',
+      'coimbatore',
+      'madurai',
+      'ecr',
+      'omr',
+      'salem',
+      'trichy',
+      'tiruppur',
+      'tirunelveli',
+      'vellore',
+      'erode',
+    ],
   },
   {
-    label: 'Rajasthan / Jaipur',
-    keywords: ['jaipur', 'udaipur', 'jodhpur', 'ajmer', 'kota', 'bhiwadi', 'neemrana', 'pushkar', 'alwar'],
+    label: 'Rajasthan',
+    keywords: [
+      'rajasthan',
+      'jaipur',
+      'udaipur',
+      'jodhpur',
+      'ajmer',
+      'kota',
+      'bhiwadi',
+      'neemrana',
+      'pushkar',
+      'alwar',
+      'bikaner',
+      'bhilwara',
+      'jaisalmer',
+    ],
   },
   {
     label: 'Gujarat',
-    keywords: ['ahmedabad', 'surat', 'vadodara', 'baroda', 'rajkot', 'gandhinagar', 'bhavnagar', 'vapi'],
+    keywords: [
+      'gujarat',
+      'ahmedabad',
+      'surat',
+      'vadodara',
+      'baroda',
+      'rajkot',
+      'gandhinagar',
+      'bhavnagar',
+      'vapi',
+      'valsad',
+      'jamnagar',
+      'junagadh',
+      'anand',
+    ],
   },
   {
     label: 'Punjab / Chandigarh',
-    keywords: ['chandigarh', 'mohali', 'panchkula', 'ludhiana', 'amritsar', 'jalandhar', 'patiala', 'zirakpur'],
+    keywords: [
+      'punjab',
+      'chandigarh',
+      'mohali',
+      'panchkula',
+      'ludhiana',
+      'amritsar',
+      'jalandhar',
+      'patiala',
+      'zirakpur',
+      'bathinda',
+      'pathankot',
+    ],
   },
   {
     label: 'Uttar Pradesh',
-    keywords: ['lucknow', 'kanpur', 'varanasi', 'agra', 'meerut', 'prayagraj', 'allahabad', 'bareilly', 'ayodhya'],
+    keywords: [
+      'uttar pradesh',
+      'lucknow',
+      'kanpur',
+      'varanasi',
+      'banaras',
+      'kashi',
+      'agra',
+      'meerut',
+      'prayagraj',
+      'allahabad',
+      'bareilly',
+      'ayodhya',
+      'gorakhpur',
+      'aligarh',
+      'mathura',
+      'vrindavan',
+    ],
   },
   {
-    label: 'Kolkata / West Bengal',
-    keywords: ['kolkata', 'calcutta', 'howrah', 'salt lake', 'new town', 'siliguri', 'durgapur'],
+    label: 'West Bengal',
+    keywords: [
+      'west bengal',
+      'bengal',
+      'kolkata',
+      'calcutta',
+      'howrah',
+      'salt lake',
+      'new town',
+      'siliguri',
+      'durgapur',
+      'asansol',
+      'darjeeling',
+    ],
   },
   {
-    label: 'Uttarakhand / Dehradun',
-    keywords: ['dehradun', 'rishikesh', 'haridwar', 'mussoorie', 'nainital', 'haldwani', 'roorkee'],
+    label: 'Uttarakhand',
+    keywords: [
+      'uttarakhand',
+      'dehradun',
+      'rishikesh',
+      'haridwar',
+      'mussoorie',
+      'nainital',
+      'haldwani',
+      'roorkee',
+      'rudrapur',
+    ],
   },
   {
     label: 'Himachal Pradesh',
-    keywords: ['shimla', 'manali', 'kasauli', 'dharamshala', 'solan', 'kullu'],
+    keywords: ['himachal pradesh', 'himachal', 'shimla', 'manali', 'kasauli', 'dharamshala', 'solan', 'kullu', 'mandi'],
   },
   {
     label: 'Kerala',
-    keywords: ['kochi', 'cochin', 'trivandrum', 'thiruvananthapuram', 'calicut', 'kozhikode', 'wayanad', 'kottayam', 'munnar'],
+    keywords: [
+      'kerala',
+      'kochi',
+      'cochin',
+      'trivandrum',
+      'thiruvananthapuram',
+      'calicut',
+      'kozhikode',
+      'wayanad',
+      'kottayam',
+      'munnar',
+      'thrissur',
+      'alleppey',
+      'alappuzha',
+    ],
+  },
+  {
+    label: 'Andhra Pradesh',
+    keywords: ['andhra pradesh', 'andhra', 'visakhapatnam', 'vizag', 'vijayawada', 'guntur', 'tirupati', 'nellore', 'kurnool'],
+  },
+  {
+    label: 'Madhya Pradesh',
+    keywords: ['madhya pradesh', 'indore', 'bhopal', 'jabalpur', 'gwalior', 'ujjain'],
   },
   {
     label: 'Assam / Northeast',
@@ -839,23 +1029,446 @@ export function getClientLocation(
 }
 
 /**
+ * Indian State matching map to detect States from city names, state names, or mixed text
+ * e.g. "Gokarna, Karnataka" -> "Karnataka"
+ *      "Gokarna" -> "Karnataka"
+ *      "Bangalore" -> "Karnataka"
+ */
+export const STATE_DIRECT_MAP: Array<{ state: string; matches: string[] }> = [
+  {
+    state: 'Karnataka',
+    matches: [
+      'karnataka',
+      'gokarna',
+      'bangalore',
+      'bengaluru',
+      'mysore',
+      'mysuru',
+      'mangalore',
+      'mangaluru',
+      'hubli',
+      'hubballi',
+      'dharwad',
+      'belgaum',
+      'belagavi',
+      'udupi',
+      'manipal',
+      'coorg',
+      'kodagu',
+      'madikeri',
+      'hampi',
+      'hospet',
+      'bellary',
+      'ballari',
+      'shimoga',
+      'shivamogga',
+      'davangere',
+      'davanagere',
+      'gulbarga',
+      'kalaburagi',
+      'tumkur',
+      'tumakuru',
+      'karwar',
+      'chikmagalur',
+      'chikkamagaluru',
+      'kolar',
+      'whitefield',
+      'koramangala',
+      'indiranagar',
+      'sarjapur',
+      'electronic city',
+      'yelahanka',
+    ],
+  },
+  {
+    state: 'Maharashtra',
+    matches: [
+      'maharashtra',
+      'mumbai',
+      'bombay',
+      'pune',
+      'nagpur',
+      'nashik',
+      'aurangabad',
+      'chhatrapati sambhajinagar',
+      'thane',
+      'navi mumbai',
+      'solapur',
+      'kolhapur',
+      'alibaug',
+      'alibag',
+      'lonavala',
+      'khandala',
+      'mahabaleshwar',
+      'satara',
+      'panvel',
+      'kalyan',
+      'andheri',
+      'bandra',
+      'worli',
+      'juhu',
+      'powai',
+    ],
+  },
+  {
+    state: 'Goa',
+    matches: [
+      'goa',
+      'panaji',
+      'panjim',
+      'margao',
+      'madgaon',
+      'vasco',
+      'mapusa',
+      'ponda',
+      'candolim',
+      'calangute',
+      'baga',
+      'anjuna',
+      'vagator',
+      'morjim',
+      'porvorim',
+      'colva',
+      'palolem',
+    ],
+  },
+  {
+    state: 'Delhi NCR',
+    matches: [
+      'delhi',
+      'new delhi',
+      'ncr',
+      'gurgaon',
+      'gurugram',
+      'noida',
+      'greater noida',
+      'ghaziabad',
+      'faridabad',
+      'sonipat',
+      'manesar',
+      'dwarka',
+      'saket',
+      'vasant',
+      'chhatarpur',
+      'sainik farm',
+    ],
+  },
+  {
+    state: 'Telangana',
+    matches: [
+      'telangana',
+      'hyderabad',
+      'secunderabad',
+      'cyberabad',
+      'gachibowli',
+      'jubilee hills',
+      'banjara hills',
+      'madhapur',
+      'kondapur',
+      'warangal',
+      'nizamabad',
+      'karimnagar',
+    ],
+  },
+  {
+    state: 'Tamil Nadu',
+    matches: [
+      'tamil nadu',
+      'tamilnadu',
+      'chennai',
+      'madras',
+      'coimbatore',
+      'madurai',
+      'ecr',
+      'omr',
+      'salem',
+      'trichy',
+      'tiruppur',
+      'tirunelveli',
+      'vellore',
+      'erode',
+    ],
+  },
+  {
+    state: 'Rajasthan',
+    matches: [
+      'rajasthan',
+      'jaipur',
+      'udaipur',
+      'jodhpur',
+      'ajmer',
+      'kota',
+      'bhiwadi',
+      'neemrana',
+      'pushkar',
+      'alwar',
+      'bikaner',
+      'bhilwara',
+      'jaisalmer',
+    ],
+  },
+  {
+    state: 'Gujarat',
+    matches: [
+      'gujarat',
+      'ahmedabad',
+      'surat',
+      'vadodara',
+      'baroda',
+      'rajkot',
+      'gandhinagar',
+      'bhavnagar',
+      'vapi',
+      'valsad',
+      'jamnagar',
+      'anand',
+    ],
+  },
+  {
+    state: 'Punjab / Chandigarh',
+    matches: [
+      'punjab',
+      'chandigarh',
+      'mohali',
+      'panchkula',
+      'ludhiana',
+      'amritsar',
+      'jalandhar',
+      'patiala',
+      'zirakpur',
+      'bathinda',
+    ],
+  },
+  {
+    state: 'Uttar Pradesh',
+    matches: [
+      'uttar pradesh',
+      'lucknow',
+      'kanpur',
+      'varanasi',
+      'banaras',
+      'kashi',
+      'agra',
+      'meerut',
+      'prayagraj',
+      'allahabad',
+      'bareilly',
+      'ayodhya',
+      'gorakhpur',
+    ],
+  },
+  {
+    state: 'West Bengal',
+    matches: [
+      'west bengal',
+      'bengal',
+      'kolkata',
+      'calcutta',
+      'howrah',
+      'salt lake',
+      'new town',
+      'siliguri',
+      'durgapur',
+      'darjeeling',
+    ],
+  },
+  {
+    state: 'Uttarakhand',
+    matches: [
+      'uttarakhand',
+      'dehradun',
+      'rishikesh',
+      'haridwar',
+      'mussoorie',
+      'nainital',
+      'haldwani',
+      'roorkee',
+    ],
+  },
+  {
+    state: 'Himachal Pradesh',
+    matches: ['himachal pradesh', 'himachal', 'shimla', 'manali', 'kasauli', 'dharamshala', 'solan', 'kullu'],
+  },
+  {
+    state: 'Kerala',
+    matches: [
+      'kerala',
+      'kochi',
+      'cochin',
+      'trivandrum',
+      'thiruvananthapuram',
+      'calicut',
+      'kozhikode',
+      'wayanad',
+      'kottayam',
+      'munnar',
+      'thrissur',
+      'alleppey',
+      'alappuzha',
+    ],
+  },
+  {
+    state: 'Andhra Pradesh',
+    matches: ['andhra pradesh', 'andhra', 'visakhapatnam', 'vizag', 'vijayawada', 'guntur', 'tirupati', 'nellore'],
+  },
+  {
+    state: 'Madhya Pradesh',
+    matches: ['madhya pradesh', 'indore', 'bhopal', 'jabalpur', 'gwalior', 'ujjain'],
+  },
+  {
+    state: 'Assam / Northeast',
+    matches: ['assam', 'guwahati', 'shillong', 'dimapur', 'imphal', 'agartala'],
+  },
+];
+
+/**
+ * Resolves the primary Indian State or standard region from city, state, or mixed text.
+ * e.g., "Gokarna, Karnataka" -> "Karnataka"
+ *       "Gokarna" -> "Karnataka"
+ *       "Bangalore / Karnataka" -> "Karnataka"
+ *       "Bangalore" -> "Karnataka"
+ *       "Mumbai, Maharashtra" -> "Maharashtra"
+ */
+export function resolveStateFromLocation(
+  locText: string | null | undefined
+): string | null {
+  if (!locText) return null;
+  const raw = locText.trim();
+  if (!raw) return null;
+
+  // Handle existing composite labels
+  if (raw === 'Bangalore / Karnataka') return 'Karnataka';
+  if (raw === 'Hyderabad / Telangana') return 'Telangana';
+  if (raw === 'Tamil Nadu / Chennai') return 'Tamil Nadu';
+  if (raw === 'Rajasthan / Jaipur') return 'Rajasthan';
+  if (raw === 'Kolkata / West Bengal') return 'West Bengal';
+  if (raw === 'Uttarakhand / Dehradun') return 'Uttarakhand';
+  if (raw === 'Maharashtra & Goa') {
+    return raw.toLowerCase().includes('goa') ? 'Goa' : 'Maharashtra';
+  }
+
+  const lower = raw.toLowerCase();
+
+  // 1. Direct match on standard state names
+  for (const item of STATE_DIRECT_MAP) {
+    if (lower === item.state.toLowerCase()) {
+      return item.state;
+    }
+  }
+
+  // 2. Tokenized check (e.g. "Gokarna, Karnataka" split into tokens)
+  const tokens = lower
+    .split(/[,/\\-]+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  for (const token of tokens) {
+    for (const item of STATE_DIRECT_MAP) {
+      if (token === item.state.toLowerCase() || item.matches.includes(token)) {
+        return item.state;
+      }
+    }
+  }
+
+  // 3. Word boundary regex in full string
+  for (const item of STATE_DIRECT_MAP) {
+    for (const m of item.matches) {
+      const regex = new RegExp(`\\b${m}\\b`, 'i');
+      if (regex.test(lower)) {
+        return item.state;
+      }
+    }
+  }
+
+  // 4. Check CITY_KEYWORDS
+  for (const entry of CITY_KEYWORDS) {
+    for (const kw of entry.keywords) {
+      const regex = new RegExp(`\\b${kw}\\b`, 'i');
+      if (regex.test(lower)) {
+        return entry.label;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Resolves the state for a quotation:
+ * If location is "Gokarna, Karnataka" -> returns "Karnataka"
+ * If location is "Gokarna" -> returns "Karnataka"
+ */
+export function getQuotationState(
+  quotation:
+    | Quotation
+    | {
+        location?: string | null;
+        client_id?: string;
+        client_name?: string;
+        internal_notes?: string | null;
+        contact_number?: string;
+        contact_number_raw?: string;
+      },
+  clients?: Client[]
+): string {
+  const loc = getQuotationLocation(quotation, clients);
+  if (!loc || loc === 'Other') return 'Other';
+  const resolvedState = resolveStateFromLocation(loc);
+  return resolvedState || loc;
+}
+
+/**
+ * Checks if a quotation's location matches a filter:
+ * Supports filtering by State (e.g., "Karnataka" matches "Gokarna, Karnataka" and "Bangalore")
+ * as well as direct city/substring matches.
+ */
+export function isLocationMatch(
+  quotationLoc: string | null | undefined,
+  filterVal: string
+): boolean {
+  if (!filterVal || filterVal === 'All') return true;
+  if (!quotationLoc) return filterVal === 'Other';
+
+  // Exact match
+  if (quotationLoc.toLowerCase() === filterVal.toLowerCase()) return true;
+
+  // State resolution match: e.g. "Gokarna, Karnataka" with filter "Karnataka"
+  const qState = resolveStateFromLocation(quotationLoc);
+  const fState = resolveStateFromLocation(filterVal) || filterVal;
+  if (qState && fState && qState.toLowerCase() === fState.toLowerCase()) {
+    return true;
+  }
+
+  // Substring / word match
+  const qLower = quotationLoc.toLowerCase();
+  const fLower = filterVal.toLowerCase();
+  if (qLower.includes(fLower) || fLower.includes(qLower)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Suggested standard location options for dropdowns/inputs
  */
 export const POPULAR_LOCATIONS: string[] = [
+  'Karnataka',
+  'Maharashtra',
   'Delhi NCR',
-  'Mumbai',
-  'Maharashtra & Goa',
-  'Bangalore / Karnataka',
-  'Hyderabad / Telangana',
-  'Rajasthan / Jaipur',
+  'Goa',
+  'Telangana',
+  'Tamil Nadu',
+  'Rajasthan',
   'Gujarat',
-  'Punjab / Chandigarh',
   'Uttar Pradesh',
-  'Tamil Nadu / Chennai',
-  'Kolkata / West Bengal',
-  'Uttarakhand / Dehradun',
+  'Punjab / Chandigarh',
+  'West Bengal',
+  'Uttarakhand',
   'Himachal Pradesh',
   'Kerala',
+  'Andhra Pradesh',
+  'Madhya Pradesh',
   'Assam / Northeast',
   'Other',
 ];

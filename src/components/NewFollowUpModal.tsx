@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { PlusCircle, X } from 'lucide-react';
 import { Quotation, FollowUpType } from '../types';
 import { formatIndianCurrency } from '../../server/normalizer';
+import { useToast } from './Toast';
 
 interface NewFollowUpModalProps {
   quotations: Quotation[];
@@ -22,6 +23,7 @@ export const NewFollowUpModal: React.FC<NewFollowUpModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { showToast } = useToast();
   const [quotationId, setQuotationId] = useState(
     initialQuotationId || (quotations.length > 0 ? quotations[0].id : '')
   );
@@ -51,7 +53,7 @@ export const NewFollowUpModal: React.FC<NewFollowUpModalProps> = ({
       });
       onClose();
     } catch (err: any) {
-      alert(err.message || 'Failed to schedule follow-up');
+      showToast(err.message || 'Failed to schedule follow-up', 'error');
     } finally {
       setIsSubmitting(false);
     }

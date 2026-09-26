@@ -9,9 +9,8 @@ import {
   ChevronRight,
   Clock,
   ExternalLink,
+  Filter,
   Flame,
-  LayoutGrid,
-  List,
   MapPin,
   MessageCircle,
   Phone,
@@ -40,7 +39,10 @@ import {
   generateWhatsAppUrl,
   STAGE_OPTIONS,
 } from '../utils/quotationActions';
-import { getQuotationLocation } from '../utils/locationUtils';
+import { getQuotationLocation, getQuotationState } from '../utils/locationUtils';
+import { UnifiedLeadCard } from './UnifiedLeadCard';
+import { getActualNote } from '../utils/notesUtils';
+import { formatDDMMYYYY } from '../utils/dateUtils';
 
 interface MyDayViewProps {
   metrics: DashboardMetrics | null;
@@ -56,7 +58,6 @@ interface MyDayViewProps {
 }
 
 type KpiFilter = 'all' | 'overdue' | 'due_today' | 'no_next_action' | 'upcoming';
-type ViewMode = 'list' | 'cards';
 type SortOption = 'urgency' | 'deadline_asc' | 'deadline_desc' | 'amount_desc' | 'amount_asc' | 'temperature';
 
 export const MyDayView: React.FC<MyDayViewProps> = ({
@@ -75,7 +76,6 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
   const todayStr = new Date().toISOString().split('T')[0];
 
   // View preferences
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [kpiFilter, setKpiFilter] = useState<KpiFilter>('all');
   const [showFutureScheduled, setShowFutureScheduled] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,9 +83,6 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
   const [ownerFilter, setOwnerFilter] = useState<string>('all');
   const [amountFilter, setAmountFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortOption>('urgency');
-
-  // Expansion state for compact list view rows
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -175,7 +172,15 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
         const pool = item.quotation?.pool_type?.toLowerCase() || '';
         const id = item.quotation_id?.toLowerCase() || '';
         const loc = item.quotation ? getQuotationLocation(item.quotation).toLowerCase() : '';
-        return client.includes(q) || phone.includes(q) || pool.includes(q) || id.includes(q) || loc.includes(q);
+        const state = item.quotation ? getQuotationState(item.quotation).toLowerCase() : '';
+        return (
+          client.includes(q) ||
+          phone.includes(q) ||
+          pool.includes(q) ||
+          id.includes(q) ||
+          loc.includes(q) ||
+          state.includes(q)
+        );
       });
     }
 
@@ -241,7 +246,14 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
         const phone = item.contact_number?.toLowerCase() || '';
         const pool = item.pool_type?.toLowerCase() || '';
         const loc = getQuotationLocation(item).toLowerCase();
-        return client.includes(q) || phone.includes(q) || pool.includes(q) || loc.includes(q);
+        const state = getQuotationState(item).toLowerCase();
+        return (
+          client.includes(q) ||
+          phone.includes(q) ||
+          pool.includes(q) ||
+          loc.includes(q) ||
+          state.includes(q)
+        );
       });
     }
 
@@ -275,6 +287,8 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
     (tempFilter !== 'all' ? 1 : 0) +
     (ownerFilter !== 'all' ? 1 : 0) +
     (amountFilter !== 'all' ? 1 : 0) +
+    (sortBy !== 'urgency' ? 1 : 0) +
+    (showFutureScheduled ? 1 : 0) +
     (searchQuery.trim() ? 1 : 0);
 
   const clearAllFilters = () => {
@@ -282,6 +296,8 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
     setTempFilter('all');
     setOwnerFilter('all');
     setAmountFilter('all');
+    setSortBy('urgency');
+    setShowFutureScheduled(false);
     setSearchQuery('');
   };
 
@@ -354,7 +370,41 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
   const [schedulingQuoteId, setSchedulingQuoteId] = useState<string | null>(null);
   const [updatingStatusQuoteId, setUpdatingStatusQuoteId] = useState<string | null>(null);
   const [isBatchScheduling, setIsBatchScheduling] = useState(false);
-  const [actionModalQuote, setActionModalQuote] = useState<{ quote: Quotation; initialType?: FollowUpType } | null>(null);
+  const [actionModalQuote, setActionModalQuote] = useState<{
+    quote: Quotation;
+    followup?: FollowUp | null;
+    initialType?: FollowUpType;
+  } | null>(null);
+
+  // Mobile Filter Drawer & Post-Touchpoint Prompt State
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [pendingActionPrompt, setPendingActionPrompt] = useState<{
+    quote: Quotation;
+    followup?: FollowUp;
+    type: 'Call' | 'WhatsApp';
+  } | null>(null);
+
+  const handleTouchpointInitiated = (
+    quote: Quotation,
+    followup: FollowUp | undefined,
+    type: 'Call' | 'WhatsApp'
+  ) => {
+    setPendingActionPrompt({
+      quote,
+      followup,
+      type,
+    });
+  };
+
+  const mobileActiveFilterCount = useMemo(() => {
+    let count = 0;
+    if (tempFilter !== 'all') count++;
+    if (ownerFilter !== 'all') count++;
+    if (amountFilter !== 'all') count++;
+    if (sortBy !== 'urgency') count++;
+    if (showFutureScheduled) count++;
+    return count;
+  }, [tempFilter, ownerFilter, amountFilter, sortBy, showFutureScheduled]);
 
   const handleQuickScheduleForQuote = async (
     quote: Quotation,
@@ -369,7 +419,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
         scheduled_date: scheduledDate,
         scheduled_time: '10:30',
         type: followupType,
-        notes: `Quick scheduled ${followupType}`,
+        notes: null,
       });
 
       if (isGoogleCalendarConnected()) {
@@ -475,29 +525,15 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
     return phone.replace(/\D/g, '');
   };
 
-  const toggleExpand = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
   return (
-    <div className="space-y-4 pb-20 md:pb-8">
+    <div className="space-y-4 pb-mobile-nav md:pb-8">
       {/* Top Banner & Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight text-slate-900">My Day Workload</h1>
-            <span className="rounded-md bg-white px-2 py-0.5 text-xs font-semibold text-slate-600 border border-slate-200 shadow-2xs">
-              {new Date().toLocaleDateString('en-IN', {
-                weekday: 'short',
-                day: 'numeric',
-                month: 'short',
-              })}
+            <span className="rounded-md bg-white px-2 py-0.5 text-xs font-bold text-teal-800 border border-slate-200 shadow-2xs font-mono">
+              {formatDDMMYYYY(todayStr)}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -506,34 +542,6 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          {/* View Mode Toggle */}
-          <div className="inline-flex items-center rounded-lg bg-white border border-slate-200 p-0.5 shadow-2xs">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
-                viewMode === 'list'
-                  ? 'bg-teal-600 text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="Compact list view"
-            >
-              <List className="w-3.5 h-3.5" />
-              <span>List</span>
-            </button>
-            <button
-              onClick={() => setViewMode('cards')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
-                viewMode === 'cards'
-                  ? 'bg-teal-600 text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="Card grid view"
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Cards</span>
-            </button>
-          </div>
-
           <button
             onClick={onRefresh}
             disabled={isRefreshing}
@@ -546,30 +554,131 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
         </div>
       </div>
 
-      {/* Compact Interactive KPI Summary Cards */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+      {/* Mobile Compact KPI Strip (< sm): Overdue & Due Today first, zero vertical bloat */}
+      <div className="sm:hidden -mx-3 px-3 overflow-x-auto no-scrollbar pb-1">
+        <div className="flex items-center gap-1.5 min-w-max">
+          {/* Overdue */}
+          <button
+            type="button"
+            onClick={() => setKpiFilter((prev) => (prev === 'overdue' ? 'all' : 'overdue'))}
+            className={`min-h-[34px] flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ios-tap-active touch-manipulation transition shrink-0 border ${
+              kpiFilter === 'overdue'
+                ? 'bg-[#FF3B30] border-[#FF3B30] text-white shadow-xs'
+                : 'bg-[#FF3B30]/10 border-[#FF3B30]/25 text-[#FF3B30] hover:bg-[#FF3B30]/15'
+            }`}
+          >
+            <span className={`h-2 w-2 rounded-full ${kpiFilter === 'overdue' ? 'bg-white' : 'bg-[#FF3B30]'}`} />
+            <span>Overdue</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[11px] font-extrabold ${
+                kpiFilter === 'overdue' ? 'bg-black/20 text-white' : 'bg-[#FF3B30]/20 text-[#FF3B30]'
+              }`}
+            >
+              {overdueFollowups.length}
+            </span>
+          </button>
+
+          {/* Due Today */}
+          <button
+            type="button"
+            onClick={() => setKpiFilter((prev) => (prev === 'due_today' ? 'all' : 'due_today'))}
+            className={`min-h-[34px] flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ios-tap-active touch-manipulation transition shrink-0 border ${
+              kpiFilter === 'due_today'
+                ? 'bg-[#007AFF] border-[#007AFF] text-white shadow-xs'
+                : 'bg-[#007AFF]/10 border-[#007AFF]/25 text-[#007AFF] hover:bg-[#007AFF]/15'
+            }`}
+          >
+            <span className={`h-2 w-2 rounded-full ${kpiFilter === 'due_today' ? 'bg-white' : 'bg-[#007AFF]'}`} />
+            <span>Due Today</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[11px] font-extrabold ${
+                kpiFilter === 'due_today' ? 'bg-black/20 text-white' : 'bg-[#007AFF]/20 text-[#007AFF]'
+              }`}
+            >
+              {dueTodayFollowups.length}
+            </span>
+          </button>
+
+          {/* No Next Action */}
+          <button
+            type="button"
+            onClick={() => setKpiFilter((prev) => (prev === 'no_next_action' ? 'all' : 'no_next_action'))}
+            className={`min-h-[34px] flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ios-tap-active touch-manipulation transition shrink-0 border ${
+              kpiFilter === 'no_next_action'
+                ? 'bg-[#FF9500] border-[#FF9500] text-white shadow-xs'
+                : 'bg-[#FF9500]/10 border-[#FF9500]/25 text-[#FF9500] hover:bg-[#FF9500]/15'
+            }`}
+          >
+            <span className={`h-2 w-2 rounded-full ${kpiFilter === 'no_next_action' ? 'bg-white' : 'bg-[#FF9500]'}`} />
+            <span>No Action</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[11px] font-extrabold ${
+                kpiFilter === 'no_next_action' ? 'bg-black/20 text-white' : 'bg-[#FF9500]/20 text-[#FF9500]'
+              }`}
+            >
+              {quotationsWithNoNextAction.length}
+            </span>
+          </button>
+
+          {/* Upcoming */}
+          <button
+            type="button"
+            onClick={() => setKpiFilter((prev) => (prev === 'upcoming' ? 'all' : 'upcoming'))}
+            className={`min-h-[34px] flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ios-tap-active touch-manipulation transition shrink-0 border ${
+              kpiFilter === 'upcoming'
+                ? 'bg-slate-800 border-slate-900 text-white shadow-xs'
+                : 'bg-slate-200/80 border-slate-300/70 text-slate-700 hover:bg-slate-300/80'
+            }`}
+          >
+            <span className={`h-2 w-2 rounded-full ${kpiFilter === 'upcoming' ? 'bg-white' : 'bg-slate-400'}`} />
+            <span>Upcoming</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[11px] font-extrabold ${
+                kpiFilter === 'upcoming' ? 'bg-slate-700 text-white' : 'bg-slate-300 text-slate-800'
+              }`}
+            >
+              {upcomingFollowups.length}
+            </span>
+          </button>
+
+          {/* Reset / All */}
+          {kpiFilter !== 'all' && (
+            <button
+              type="button"
+              onClick={() => setKpiFilter('all')}
+              className="min-h-[34px] flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 ios-tap-active touch-manipulation transition shrink-0 shadow-2xs"
+            >
+              <span>View All</span>
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Desktop KPI Summary Cards (macOS style >= sm) */}
+      <div className="hidden sm:grid sm:grid-cols-4 sm:gap-3">
         {/* Overdue Card */}
         <div
           onClick={() => setKpiFilter((prev) => (prev === 'overdue' ? 'all' : 'overdue'))}
-          className={`cursor-pointer rounded-xl border p-3 shadow-2xs transition-all duration-150 hover:-translate-y-0.5 ${
+          className={`cursor-pointer rounded-2xl border p-3.5 shadow-2xs transition-all duration-150 hover:-translate-y-0.5 ${
             kpiFilter === 'overdue'
-              ? 'border-rose-500 bg-rose-50/50 ring-2 ring-rose-500/20 shadow-xs'
-              : 'border-slate-200/80 bg-white hover:border-rose-300'
+              ? 'border-[#FF3B30] bg-[#FF3B30]/5 ring-2 ring-[#FF3B30]/20 shadow-xs'
+              : 'border-slate-200/80 bg-white hover:border-[#FF3B30]/50'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-rose-700 flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-rose-500" />
+            <span className="text-xs font-bold text-[#FF3B30] flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-[#FF3B30]" />
               Overdue
             </span>
-            <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+            <AlertCircle className="w-3.5 h-3.5 text-[#FF3B30]" />
           </div>
           <div className="mt-1 flex items-baseline justify-between">
             <p className="text-2xl font-bold tracking-tight text-slate-900">
               {overdueFollowups.length}
             </p>
             {kpiFilter === 'overdue' && (
-              <span className="text-[10px] font-bold text-rose-600 bg-rose-100 px-1.5 py-0.2 rounded">
+              <span className="text-[10px] font-bold text-[#FF3B30] bg-[#FF3B30]/10 px-1.5 py-0.2 rounded-md">
                 Filtered
               </span>
             )}
@@ -579,25 +688,25 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
         {/* Due Today Card */}
         <div
           onClick={() => setKpiFilter((prev) => (prev === 'due_today' ? 'all' : 'due_today'))}
-          className={`cursor-pointer rounded-xl border p-3 shadow-2xs transition-all duration-150 hover:-translate-y-0.5 ${
+          className={`cursor-pointer rounded-2xl border p-3.5 shadow-2xs transition-all duration-150 hover:-translate-y-0.5 ${
             kpiFilter === 'due_today'
-              ? 'border-teal-500 bg-teal-50/50 ring-2 ring-teal-500/20 shadow-xs'
-              : 'border-slate-200/80 bg-white hover:border-teal-300'
+              ? 'border-[#007AFF] bg-[#007AFF]/5 ring-2 ring-[#007AFF]/20 shadow-xs'
+              : 'border-slate-200/80 bg-white hover:border-[#007AFF]/50'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-teal-700 flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-teal-500" />
+            <span className="text-xs font-bold text-[#007AFF] flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-[#007AFF]" />
               Due Today
             </span>
-            <Clock className="w-3.5 h-3.5 text-teal-600" />
+            <Clock className="w-3.5 h-3.5 text-[#007AFF]" />
           </div>
           <div className="mt-1 flex items-baseline justify-between">
             <p className="text-2xl font-bold tracking-tight text-slate-900">
               {dueTodayFollowups.length}
             </p>
             {kpiFilter === 'due_today' && (
-              <span className="text-[10px] font-bold text-teal-600 bg-teal-100 px-1.5 py-0.2 rounded">
+              <span className="text-[10px] font-bold text-[#007AFF] bg-[#007AFF]/10 px-1.5 py-0.2 rounded-md">
                 Filtered
               </span>
             )}
@@ -607,25 +716,25 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
         {/* No Next Action Card */}
         <div
           onClick={() => setKpiFilter((prev) => (prev === 'no_next_action' ? 'all' : 'no_next_action'))}
-          className={`cursor-pointer rounded-xl border p-3 shadow-2xs transition-all duration-150 hover:-translate-y-0.5 ${
+          className={`cursor-pointer rounded-2xl border p-3.5 shadow-2xs transition-all duration-150 hover:-translate-y-0.5 ${
             kpiFilter === 'no_next_action'
-              ? 'border-amber-500 bg-amber-50/50 ring-2 ring-amber-500/20 shadow-xs'
-              : 'border-slate-200/80 bg-white hover:border-amber-300'
+              ? 'border-[#FF9500] bg-[#FF9500]/5 ring-2 ring-[#FF9500]/20 shadow-xs'
+              : 'border-slate-200/80 bg-white hover:border-[#FF9500]/50'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-700 flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-amber-500" />
+            <span className="text-xs font-bold text-[#FF9500] flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-[#FF9500]" />
               No Next Action
             </span>
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+            <AlertTriangle className="w-3.5 h-3.5 text-[#FF9500]" />
           </div>
           <div className="mt-1 flex items-baseline justify-between">
             <p className="text-2xl font-bold tracking-tight text-slate-900">
               {quotationsWithNoNextAction.length}
             </p>
             {kpiFilter === 'no_next_action' && (
-              <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.2 rounded">
+              <span className="text-[10px] font-bold text-[#FF9500] bg-[#FF9500]/10 px-1.5 py-0.2 rounded-md">
                 Filtered
               </span>
             )}
@@ -635,14 +744,14 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
         {/* Upcoming Card */}
         <div
           onClick={() => setKpiFilter((prev) => (prev === 'upcoming' ? 'all' : 'upcoming'))}
-          className={`cursor-pointer rounded-xl border p-3 shadow-2xs transition-all duration-150 hover:-translate-y-0.5 ${
+          className={`cursor-pointer rounded-2xl border p-3.5 shadow-2xs transition-all duration-150 hover:-translate-y-0.5 ${
             kpiFilter === 'upcoming'
               ? 'border-slate-500 bg-slate-100 ring-2 ring-slate-400/20 shadow-xs'
               : 'border-slate-200/80 bg-white hover:border-slate-300'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-600 flex items-center gap-1">
+            <span className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-slate-400" />
               Upcoming
             </span>
@@ -653,7 +762,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
               {upcomingFollowups.length}
             </p>
             {kpiFilter === 'upcoming' && (
-              <span className="text-[10px] font-bold text-slate-600 bg-slate-200 px-1.5 py-0.2 rounded">
+              <span className="text-[10px] font-bold text-slate-600 bg-slate-200 px-1.5 py-0.2 rounded-md">
                 Filtered
               </span>
             )}
@@ -661,9 +770,51 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
         </div>
       </div>
 
-      {/* Useful Controls: Search, Filters, Sorters */}
-      <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-2xs space-y-2.5">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      {/* Useful Controls: Search, Filters, Sorters (iOS / macOS HIG design) */}
+      <div className="rounded-2xl border border-black/[0.06] bg-white p-3 shadow-2xs space-y-2">
+        {/* Mobile View: Search Bar + Single Filter Button (< md) */}
+        <div className="md:hidden flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search client, phone, quote..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-xl border border-black/[0.06] bg-slate-100/80 pl-8 pr-7 py-2 text-xs text-slate-800 placeholder-slate-400 focus:border-[#007AFF] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20 transition"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMobileFilterOpen(true)}
+            className={`min-h-[38px] flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition shrink-0 ios-tap-active touch-manipulation ${
+              mobileActiveFilterCount > 0
+                ? 'bg-[#007AFF]/10 border-[#007AFF]/30 text-[#007AFF] shadow-2xs'
+                : 'bg-white border-black/[0.08] text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <Filter className="w-3.5 h-3.5 text-slate-600" />
+            <span>Filter</span>
+            {mobileActiveFilterCount > 0 && (
+              <span className="h-4 min-w-[16px] px-1 rounded-full bg-[#007AFF] text-white text-[10px] font-extrabold flex items-center justify-center">
+                {mobileActiveFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Desktop View: Full Search + Sorters Row (>= md) */}
+        <div className="hidden md:flex md:items-center md:justify-between gap-2">
           {/* Search Box */}
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
@@ -672,7 +823,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
               placeholder="Search by client, phone, quote ID, pool type..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50/60 pl-8 pr-7 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500"
+              className="w-full rounded-lg border border-black/[0.06] bg-slate-100/70 pl-8 pr-7 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-[#007AFF] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#007AFF] transition"
             />
             {searchQuery && (
               <button
@@ -690,7 +841,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
             <select
               value={tempFilter}
               onChange={(e) => setTempFilter(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 text-xs focus:outline-none focus:border-teal-500 font-medium"
+              className="rounded-lg border border-black/[0.08] bg-white px-2.5 py-1 text-slate-700 text-xs focus:outline-none focus:border-[#007AFF] font-medium shadow-2xs"
             >
               <option value="all">Temp: All</option>
               <option value="hot">🔥 Hot</option>
@@ -702,7 +853,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
             <select
               value={ownerFilter}
               onChange={(e) => setOwnerFilter(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 text-xs focus:outline-none focus:border-teal-500 font-medium"
+              className="rounded-lg border border-black/[0.08] bg-white px-2.5 py-1 text-slate-700 text-xs focus:outline-none focus:border-[#007AFF] font-medium shadow-2xs"
             >
               <option value="all">Owner: All</option>
               <option value="Pranjal">Pranjal</option>
@@ -713,7 +864,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
             <select
               value={amountFilter}
               onChange={(e) => setAmountFilter(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 text-xs focus:outline-none focus:border-teal-500 font-medium"
+              className="rounded-lg border border-black/[0.08] bg-white px-2.5 py-1 text-slate-700 text-xs focus:outline-none focus:border-[#007AFF] font-medium shadow-2xs"
             >
               <option value="all">Value: All</option>
               <option value="under_5l">&lt; ₹5 Lakh</option>
@@ -920,575 +1071,51 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
                 </button>
               )}
             </div>
-          ) : viewMode === 'list' ? (
-            /* DENSE COMPACT LIST VIEW */
-            <div className="space-y-1.5">
-              {filteredFollowups.map((item) => {
-                const quote = item.quotation;
-                const isOverdue = item.status === 'Overdue';
-                const isDueToday = item.status === 'Due';
-                const isUpcoming = item.status === 'Scheduled' && item.scheduled_date > todayStr;
-                const isSelected = selectedIds.has(item.id);
-                const isExpanded = expandedIds.has(item.id);
-                const rawPhone = quote?.contact_number || '';
-                const waPhone = cleanPhoneForWa(rawPhone);
-
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => onOpenQuotation(item.quotation_id)}
-                    className={`group relative rounded-xl border bg-white p-2.5 sm:px-3.5 sm:py-2.5 shadow-2xs transition-all duration-150 cursor-pointer hover:border-teal-400 hover:shadow-xs ${
-                      isSelected
-                        ? 'border-teal-500 bg-teal-50/30'
-                        : isOverdue
-                        ? 'border-rose-200/90'
-                        : isDueToday
-                        ? 'border-teal-200/90'
-                        : isUpcoming
-                        ? 'border-slate-200/70 bg-slate-50/50 opacity-75 hover:opacity-100'
-                        : 'border-slate-200/80'
-                    }`}
-                  >
-                    {/* Status accent indicator line */}
-                    <span
-                      className={`absolute left-0 top-2 bottom-2 w-1 rounded-r ${
-                        isOverdue
-                          ? 'bg-rose-500'
-                          : isDueToday
-                          ? 'bg-teal-500'
-                          : isUpcoming
-                          ? 'bg-slate-300'
-                          : 'bg-slate-300'
-                      }`}
-                    />
-
-                    {/* Desktop Layout (hidden on mobile, visible on sm+) */}
-                    <div className="hidden sm:flex sm:items-center sm:justify-between gap-2 pl-2">
-                      {/* Left: Checkbox + Client Name + Price + Temp */}
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onClick={(e) => handleToggleSelect(item.id, e)}
-                          onChange={() => {}}
-                          className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 shrink-0"
-                        />
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-bold text-slate-900 truncate group-hover:text-teal-700 transition">
-                              {quote?.client_name || 'Client'}
-                            </span>
-                            {getTemperatureBadge(quote?.temperature)}
-                            {quote && (
-                              <span className="inline-flex items-center gap-0.5 rounded bg-cyan-50 border border-cyan-100 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-800">
-                                <MapPin className="w-2.5 h-2.5 text-cyan-600 shrink-0" />
-                                {getQuotationLocation(quote)}
-                              </span>
-                            )}
-                            {quote?.priority === 'high' && (
-                              <span className="rounded bg-rose-100 px-1.5 py-0.2 text-[10px] font-bold uppercase text-rose-800">
-                                High Priority
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5 flex-wrap">
-                            <span className="font-semibold text-slate-900">
-                              {formatIndianCurrency(quote?.quotation_price || 0)}
-                            </span>
-                            <span className="text-slate-300">•</span>
-                            <span className="truncate max-w-[140px] text-slate-700 font-medium">
-                              {quote?.pool_type || 'Pool'}
-                            </span>
-                            {quote?.pool_dimensions && (
-                              <span className="inline-flex items-center gap-1 rounded bg-slate-100 border border-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-800">
-                                📏 {quote.pool_dimensions}
-                              </span>
-                            )}
-                            {quote?.sender_name && (
-                              <>
-                                <span className="text-slate-300">•</span>
-                                <span className="text-[11px] text-slate-500">
-                                  Owner: {quote.sender_name}
-                                </span>
-                              </>
-                            )}
-                            {item.calendar_event?.html_link && (
-                              <a
-                                href={item.calendar_event.html_link}
-                                target="_blank"
-                                rel="noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200 transition"
-                                title="Open in Google Calendar"
-                              >
-                                <Calendar className="w-3 h-3 text-blue-600" />
-                                <span>In Calendar ↗</span>
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right: Deadline + Desktop Actions */}
-                      <div className="flex items-center justify-end gap-2 shrink-0 pt-0">
-                        {/* Deadline badge */}
-                        <div className="text-right">
-                          <span
-                            className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-md ${
-                              isOverdue
-                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                : isDueToday
-                                ? 'bg-teal-50 text-teal-700 border border-teal-200'
-                                : 'bg-slate-100 text-slate-700 border border-slate-200'
-                            }`}
-                          >
-                            {isOverdue ? 'Overdue: ' : isDueToday ? 'Today: ' : ''}
-                            {item.scheduled_date} {item.scheduled_time ? `· ${item.scheduled_time}` : ''}
-                          </span>
-                        </div>
-
-                        {/* Direct Action Buttons */}
-                        <div
-                          className="flex items-center gap-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {/* Quick Call */}
-                          {rawPhone && (
-                            <a
-                              href={`tel:${rawPhone.replace(/\s+/g, '')}`}
-                              className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
-                              title={`Call ${quote?.client_name}`}
-                            >
-                              <Phone className="w-4 h-4 text-emerald-600" />
-                            </a>
-                          )}
-
-                          {/* Quick WhatsApp */}
-                          {waPhone && (
-                            <a
-                              href={`https://wa.me/${waPhone}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="rounded-lg p-2 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition"
-                              title="Send WhatsApp message"
-                            >
-                              <MessageCircle className="w-4 h-4 text-emerald-600" />
-                            </a>
-                          )}
-
-                          {/* Reschedule Button */}
-                          <button
-                            onClick={() => onOpenRescheduleModal(item)}
-                            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-teal-700 transition"
-                            title="Reschedule follow-up"
-                          >
-                            <Calendar className="w-4 h-4 text-slate-500" />
-                          </button>
-
-                          {/* Primary Action: Mark Done */}
-                          <button
-                            onClick={() => onOpenDoneModal(item)}
-                            className="flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-bold shadow-2xs transition active:scale-95 ml-1"
-                          >
-                            <Check className="w-4 h-4" />
-                            <span>Done</span>
-                          </button>
-
-                          {/* Expand chevron */}
-                          <button
-                            onClick={(e) => toggleExpand(item.id, e)}
-                            className="rounded-lg p-1.5 text-slate-400 hover:text-slate-600 transition ml-0.5"
-                            title="Toggle details"
-                          >
-                            {isExpanded ? (
-                              <ChevronDown className="w-4 h-4" />
-                            ) : (
-                              <ChevronRight className="w-4 h-4" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Mobile Card Layout (sm:hidden) - Ergonomically designed for 320px-390px viewports */}
-                    <div className="sm:hidden flex flex-col gap-2 pl-1.5">
-                      {/* Row 1: Checkbox, Client Name, and Price */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onClick={(e) => handleToggleSelect(item.id, e)}
-                            onChange={() => {}}
-                            className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 shrink-0"
-                          />
-                          <span className="text-sm font-bold text-slate-900 truncate">
-                            {quote?.client_name || 'Client'}
-                          </span>
-                        </div>
-                        <span className="text-sm font-extrabold text-teal-800 font-mono tracking-tight shrink-0">
-                          {formatIndianCurrency(quote?.quotation_price || 0)}
-                        </span>
-                      </div>
-
-                      {/* Row 2: Metadata & Status Chips (wrapping gracefully) */}
-                      <div className="flex flex-wrap items-center gap-1 text-[11px]">
-                        {/* Deadline Chip */}
-                        <span
-                          className={`inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md ${
-                            isOverdue
-                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                              : isDueToday
-                              ? 'bg-teal-50 text-teal-700 border border-teal-200'
-                              : 'bg-slate-100 text-slate-700 border border-slate-200'
-                          }`}
-                        >
-                          <Clock className="w-3 h-3 shrink-0" />
-                          <span>
-                            {isOverdue ? 'Overdue: ' : isDueToday ? 'Today: ' : ''}
-                            {item.scheduled_date}
-                          </span>
-                          {item.scheduled_time && <span>· {item.scheduled_time}</span>}
-                        </span>
-
-                        {/* Temperature Badge */}
-                        {getTemperatureBadge(quote?.temperature)}
-
-                        {/* Location */}
-                        {quote && (
-                          <span className="inline-flex items-center gap-0.5 rounded bg-cyan-50 border border-cyan-100 px-1.5 py-0.5 font-semibold text-cyan-800 truncate max-w-[140px]">
-                            <MapPin className="w-2.5 h-2.5 text-cyan-600 shrink-0" />
-                            <span className="truncate">{getQuotationLocation(quote)}</span>
-                          </span>
-                        )}
-
-                        {/* Pool Specs */}
-                        <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-slate-700 font-medium truncate max-w-[130px]">
-                          {quote?.pool_type || 'Pool'}
-                          {quote?.pool_dimensions ? ` · 📏 ${quote.pool_dimensions}` : ''}
-                        </span>
-
-                        {/* High Priority */}
-                        {quote?.priority === 'high' && (
-                          <span className="rounded bg-rose-100 px-1.5 py-0.5 font-bold uppercase text-rose-800 text-[10px]">
-                            High
-                          </span>
-                        )}
-
-                        {/* Owner Tag */}
-                        {quote?.sender_name && (
-                          <span className="text-[10px] text-slate-500">
-                            Owner: {quote.sender_name}
-                          </span>
-                        )}
-
-                        {/* GCal link */}
-                        {item.calendar_event?.html_link && (
-                          <a
-                            href={item.calendar_event.html_link}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200"
-                          >
-                            <Calendar className="w-3 h-3 text-blue-600" />
-                            <span>GCal ↗</span>
-                          </a>
-                        )}
-                      </div>
-
-                      {/* Notes (if present) */}
-                      {item.notes && (
-                        <p className="text-[11px] text-slate-600 bg-slate-50 border border-slate-100 rounded-lg p-1.5 italic line-clamp-2">
-                          "{item.notes}"
-                        </p>
-                      )}
-
-                      {/* Mobile Touch Action Area: 2 Tiers - Zero horizontal overflow */}
-                      <div
-                        className="mt-1 pt-2 border-t border-slate-100/90 flex flex-col gap-1.5"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {/* Tier 1: Primary Actions (Call, WhatsApp, Done) */}
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {rawPhone ? (
-                            <a
-                              href={`tel:${rawPhone.replace(/\s+/g, '')}`}
-                              className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-emerald-50 border border-emerald-200/90 py-2 text-xs font-bold text-emerald-800 active:scale-95 touch-manipulation transition shadow-2xs"
-                              title={`Call ${quote?.client_name}`}
-                            >
-                              <Phone className="w-4 h-4 text-emerald-600 shrink-0" />
-                              <span>Call</span>
-                            </a>
-                          ) : (
-                            <div className="min-h-[44px] flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-400">
-                              No Phone
-                            </div>
-                          )}
-
-                          {waPhone ? (
-                            <a
-                              href={`https://wa.me/${waPhone}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-emerald-600 border border-emerald-700 py-2 text-xs font-bold text-white active:scale-95 touch-manipulation transition shadow-2xs"
-                              title="Send WhatsApp message"
-                            >
-                              <MessageCircle className="w-4 h-4 shrink-0" />
-                              <span>WhatsApp</span>
-                            </a>
-                          ) : (
-                            <div className="min-h-[44px] flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-400">
-                              No WA
-                            </div>
-                          )}
-
-                          {/* Primary CTA: Done */}
-                          <button
-                            type="button"
-                            onClick={() => onOpenDoneModal(item)}
-                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-teal-600 hover:bg-teal-700 py-2 text-xs font-bold text-white active:scale-95 touch-manipulation transition shadow-2xs"
-                            title="Complete Follow-Up"
-                          >
-                            <Check className="w-4 h-4 stroke-[2.5]" />
-                            <span>Done</span>
-                          </button>
-                        </div>
-
-                        {/* Tier 2: Reschedule & Details */}
-                        <div className="flex items-center justify-between gap-2">
-                          <button
-                            type="button"
-                            onClick={() => onOpenRescheduleModal(item)}
-                            className="flex-1 min-h-[38px] flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 py-1 px-3 text-xs font-semibold text-slate-700 active:scale-95 touch-manipulation transition shadow-2xs"
-                            title="Reschedule follow-up"
-                          >
-                            <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                            <span>Reschedule</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={(e) => toggleExpand(item.id, e)}
-                            className="min-h-[38px] flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 py-1 px-3 text-xs font-medium text-slate-600 active:scale-95 touch-manipulation transition"
-                            title="Toggle details"
-                          >
-                            <span>{isExpanded ? 'Less' : 'Details'}</span>
-                            {isExpanded ? (
-                              <ChevronDown className="w-3.5 h-3.5" />
-                            ) : (
-                              <ChevronRight className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Expandable row details panel */}
-                    {isExpanded && (
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="mt-2.5 pt-2.5 border-t border-slate-100 text-xs text-slate-600 grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50/70 p-2 rounded-lg"
-                      >
-                        <div>
-                          <span className="text-[10px] uppercase font-bold text-slate-400">
-                            Pool Specs
-                          </span>
-                          <p className="text-slate-800 font-medium">
-                            {quote?.pool_type || 'Custom Pool'}{' '}
-                            {quote?.pool_dimensions ? `(${quote.pool_dimensions})` : ''}
-                          </p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">
-                            Quoted: {quote?.quotation_date || 'N/A'}
-                          </p>
-                        </div>
-
-                        <div>
-                          <span className="text-[10px] uppercase font-bold text-slate-400">
-                            Follow-Up Note
-                          </span>
-                          <p className="text-slate-800 italic">
-                            "{item.notes || 'Routine follow-up call'}"
-                          </p>
-                        </div>
-
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => onOpenQuotation(item.quotation_id)}
-                            className="inline-flex items-center gap-1 text-teal-700 hover:text-teal-900 font-semibold text-xs bg-white border border-slate-200 px-2.5 py-1 rounded-md shadow-2xs"
-                          >
-                            <span>Open Details</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
           ) : (
-            /* POLISHED COMPACT CARD VIEW */
-            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-2.5">
               {filteredFollowups.map((item) => {
                 const quote = item.quotation;
-                const isOverdue = item.status === 'Overdue';
-                const isDueToday = item.status === 'Due';
-                const isUpcoming = item.status === 'Scheduled' && item.scheduled_date > todayStr;
-                const isSelected = selectedIds.has(item.id);
-                const rawPhone = quote?.contact_number || '';
-                const waPhone = cleanPhoneForWa(rawPhone);
+                const fullQuotation =
+                  quotations.find((q) => q.id === item.quotation_id) ||
+                  (quote
+                    ? ({
+                        ...quote,
+                        id: item.quotation_id,
+                        workspace_id: item.workspace_id,
+                        source_id: item.quotation_id,
+                        source_status: quote.app_status,
+                        is_active: true,
+                        items: [],
+                        grand_total: quote.quotation_price,
+                        created_at: quote.quotation_date || item.created_at,
+                        updated_at: item.updated_at,
+                      } as unknown as Quotation)
+                    : null);
+
+                if (!fullQuotation) return null;
 
                 return (
-                  <div
+                  <UnifiedLeadCard
                     key={item.id}
-                    onClick={() => onOpenQuotation(item.quotation_id)}
-                    className={`group rounded-xl border p-3.5 shadow-2xs transition-all duration-150 flex flex-col justify-between bg-white cursor-pointer hover:shadow-xs hover:border-teal-400 ${
-                      isSelected
-                        ? 'border-teal-500 ring-2 ring-teal-500/20'
-                        : isOverdue
-                        ? 'border-rose-200 hover:border-rose-300'
-                        : isDueToday
-                        ? 'border-teal-200 hover:border-teal-300'
-                        : isUpcoming
-                        ? 'border-slate-200/80 bg-slate-50/50 opacity-80 hover:opacity-100'
-                        : 'border-slate-200'
-                    }`}
-                  >
-                    <div>
-                      {/* Card Header: Checkbox + Badges + Deadline */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onClick={(e) => handleToggleSelect(item.id, e)}
-                            onChange={() => {}}
-                            className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
-                          />
-                          {getTemperatureBadge(quote?.temperature)}
-                        </div>
-
-                        <span
-                          className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${
-                            isOverdue
-                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                              : isDueToday
-                              ? 'bg-teal-50 text-teal-700 border border-teal-200'
-                              : 'bg-slate-100 text-slate-700 border border-slate-200'
-                          }`}
-                        >
-                          {item.scheduled_date} {item.scheduled_time ? `· ${item.scheduled_time}` : ''}
-                        </span>
-                      </div>
-
-                      {/* Title & Amount */}
-                      <div className="mt-2 flex items-baseline justify-between gap-2">
-                        <h3 className="text-sm font-bold text-slate-900 truncate group-hover:text-teal-700 transition">
-                          {quote?.client_name || 'Client'}
-                        </h3>
-                        <p className="text-sm font-extrabold text-teal-700 shrink-0">
-                          {formatIndianCurrency(quote?.quotation_price || 0)}
-                        </p>
-                      </div>
-
-                      {/* Pool specifications */}
-                      <p className="text-xs text-slate-500 mt-0.5 truncate">
-                        {quote?.pool_type || 'Pool'}{' '}
-                        {quote?.pool_dimensions ? `· ${quote.pool_dimensions}` : ''}
-                      </p>
-
-                      {/* Contact & Owner */}
-                      <div className="mt-2 rounded-lg bg-slate-50 border border-slate-100 p-2 flex items-center justify-between text-xs flex-wrap gap-1">
-                        <span className="font-semibold text-slate-800">
-                          📞 {quote?.contact_number}
-                        </span>
-                        {quote && (
-                          <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-cyan-800">
-                            <MapPin className="w-3 h-3 text-cyan-600 shrink-0" />
-                            {getQuotationLocation(quote)}
-                          </span>
-                        )}
-                        {quote?.sender_name && (
-                          <span className="text-slate-500 text-[11px]">
-                            {quote.sender_name}
-                          </span>
-                        )}
-                      </div>
-
-                      {item.notes && (
-                        <p className="mt-1.5 rounded-md bg-amber-50/60 border border-amber-100 p-1.5 text-[11px] text-amber-900 italic line-clamp-2">
-                          "{item.notes}"
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Quick Action Footer */}
-                    <div
-                      className="mt-3 pt-2.5 border-t border-slate-100 flex flex-col gap-1.5"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {rawPhone ? (
-                          <a
-                            href={`tel:${rawPhone.replace(/\s+/g, '')}`}
-                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-emerald-50 border border-emerald-200/90 py-2 text-xs font-bold text-emerald-800 active:scale-95 touch-manipulation transition shadow-2xs"
-                            title="Call"
-                          >
-                            <Phone className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span>Call</span>
-                          </a>
-                        ) : (
-                          <div className="min-h-[44px] flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-400">
-                            No Phone
-                          </div>
-                        )}
-                        {waPhone ? (
-                          <a
-                            href={`https://wa.me/${waPhone}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-emerald-600 border border-emerald-700 py-2 text-xs font-bold text-white active:scale-95 touch-manipulation transition shadow-2xs"
-                            title="WhatsApp"
-                          >
-                            <MessageCircle className="w-4 h-4 shrink-0" />
-                            <span>WhatsApp</span>
-                          </a>
-                        ) : (
-                          <div className="min-h-[44px] flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-400">
-                            No WA
-                          </div>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => onOpenDoneModal(item)}
-                          className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-teal-600 hover:bg-teal-700 py-2 text-xs font-bold text-white active:scale-95 touch-manipulation transition shadow-2xs"
-                          title="Done"
-                        >
-                          <Check className="w-4 h-4 stroke-[2.5]" />
-                          <span>Done</span>
-                        </button>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => onOpenRescheduleModal(item)}
-                        className="w-full min-h-[38px] flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 py-1 px-3 text-xs font-semibold text-slate-700 active:scale-95 touch-manipulation transition shadow-2xs"
-                        title="Reschedule"
-                      >
-                        <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Reschedule</span>
-                      </button>
-                    </div>
-                  </div>
+                    quotation={fullQuotation}
+                    followup={item}
+                    isSelected={selectedIds.has(item.id)}
+                    showCheckbox={true}
+                    onToggleSelect={(id, e) => handleToggleSelect(item.id, e)}
+                    onOpenQuotation={onOpenQuotation}
+                    onOpenDoneModal={onOpenDoneModal}
+                    onOpenRecordAction={(q, initialType) =>
+                      setActionModalQuote({ quote: q, initialType })
+                    }
+                    onOpenRescheduleModal={onOpenRescheduleModal}
+                    onQuickUpdateTemp={handleQuickUpdateTemp}
+                  />
                 );
               })}
             </div>
-          )}
-        </>
-      )}
+    )}
+  </>
+)}
 
       {/* SECTION: NO NEXT ACTION (PRD Section 44 & 107) */}
       {(kpiFilter === 'all' || kpiFilter === 'no_next_action') &&
@@ -1527,179 +1154,22 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 lg:grid-cols-3">
-              {filteredNoNextAction.map((q) => {
-                const phoneClean = q.contact_number.replace(/\s+/g, '');
-                const waUrl = generateWhatsAppUrl(
-                  q.contact_number,
-                  q.client_name,
-                  q.pool_type,
-                  q.quotation_price
-                );
-                const isSchedulingThis = schedulingQuoteId === q.id;
-                const isUpdatingThis = updatingStatusQuoteId === q.id;
-
-                return (
-                  <div
-                    key={q.id}
-                    onClick={() => onOpenQuotation(q.id)}
-                    className="rounded-xl border border-amber-200 bg-white p-3.5 shadow-2xs flex flex-col justify-between hover:border-amber-300 transition cursor-pointer"
-                  >
-                    <div>
-                      {/* Top Row: Client & Interactive Temperature */}
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-xs font-bold text-slate-900 hover:text-teal-600 transition truncate flex-1">
-                          {q.client_name}
-                        </span>
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            title="Click to toggle temperature"
-                            onClick={() => {
-                              const nextTemp =
-                                q.temperature === 'hot'
-                                  ? 'warm'
-                                  : q.temperature === 'warm'
-                                  ? 'cold'
-                                  : 'hot';
-                              handleQuickUpdateTemp(q, nextTemp);
-                            }}
-                            className="cursor-pointer transition active:scale-95"
-                          >
-                            {getTemperatureBadge(q.temperature)}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Price & Dimensions */}
-                      <div className="mt-1 flex items-baseline justify-between">
-                        <p className="text-sm font-extrabold text-teal-700">
-                          {formatIndianCurrency(q.quotation_price)}
-                        </p>
-                        <span className="text-xs text-slate-500 font-medium truncate max-w-[130px]">
-                          {q.pool_type || 'Pool'}
-                        </span>
-                      </div>
-
-                      {q.pool_dimensions && (
-                        <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                          📏 {q.pool_dimensions}
-                        </p>
-                      )}
-
-                      {/* Contact & Stage Row */}
-                      <div
-                        className="mt-2.5 pt-2 border-t border-slate-100 flex flex-col gap-2"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="grid grid-cols-2 gap-1.5 sm:flex sm:items-center">
-                          {phoneClean && (
-                            <a
-                              href={`tel:${phoneClean}`}
-                              className="min-h-[40px] flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition active:scale-95 touch-manipulation"
-                              title={`Call ${q.client_name}`}
-                            >
-                              <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Call</span>
-                            </a>
-                          )}
-                          <a
-                            href={waUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="min-h-[40px] flex items-center justify-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition active:scale-95 touch-manipulation"
-                            title="Send WhatsApp Follow-Up Template"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>WhatsApp</span>
-                          </a>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setActionModalQuote({ quote: q, initialType: 'Call' })}
-                            className="flex-1 min-h-[38px] inline-flex items-center justify-center gap-1 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-xs font-semibold text-teal-800 hover:bg-teal-100 transition active:scale-95 touch-manipulation"
-                            title="Record Action Taken for this quotation"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
-                            <span>Record Action</span>
-                          </button>
-
-                          {/* Quick Stage Dropdown */}
-                          <div className="relative shrink-0">
-                            <select
-                              value={q.app_status}
-                              disabled={isUpdatingThis}
-                              onChange={(e) =>
-                                handleQuickUpdateStatus(q, e.target.value as AppStatus)
-                              }
-                              className="min-h-[38px] text-[11px] font-semibold rounded-lg border border-slate-200 bg-white py-1 px-2 text-slate-700 focus:outline-none focus:border-teal-500 cursor-pointer shadow-2xs"
-                            >
-                              {STAGE_OPTIONS.map((st) => (
-                                <option key={st.status} value={st.status}>
-                                  {st.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Quick 1-Click Follow-Up Action Bar */}
-                    <div
-                      className="mt-3 pt-2.5 border-t border-amber-100"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1">
-                          <Zap className="w-3 h-3 text-amber-600" />
-                          1-Click Schedule:
-                        </span>
-                        <button
-                          onClick={() => onOpenNewFollowUpForQuotation(q.id)}
-                          className="text-[11px] font-semibold text-teal-700 hover:underline"
-                        >
-                          + Custom
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-1.5">
-                        <button
-                          disabled={isSchedulingThis}
-                          onClick={() => handleQuickScheduleForQuote(q, 1, 'Call')}
-                          className="flex flex-col items-center justify-center rounded-lg bg-amber-50 hover:bg-amber-100/80 border border-amber-200 py-1 text-center transition active:scale-95 disabled:opacity-50"
-                          title="Schedule for Tomorrow 10:30 AM"
-                        >
-                          <span className="text-[11px] font-bold text-amber-900">Tomorrow</span>
-                          <span className="text-[9px] text-amber-700 font-mono">10:30 AM</span>
-                        </button>
-
-                        <button
-                          disabled={isSchedulingThis}
-                          onClick={() => handleQuickScheduleForQuote(q, 3, 'Call')}
-                          className="flex flex-col items-center justify-center rounded-lg bg-teal-50 hover:bg-teal-100/80 border border-teal-200 py-1 text-center transition active:scale-95 disabled:opacity-50"
-                          title="Schedule in 3 Days 10:30 AM"
-                        >
-                          <span className="text-[11px] font-bold text-teal-900">+3 Days</span>
-                          <span className="text-[9px] text-teal-700 font-mono">10:30 AM</span>
-                        </button>
-
-                        <button
-                          disabled={isSchedulingThis}
-                          onClick={() => handleQuickScheduleForQuote(q, 7, 'Call')}
-                          className="flex flex-col items-center justify-center rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 py-1 text-center transition active:scale-95 disabled:opacity-50"
-                          title="Schedule in 1 Week 10:30 AM"
-                        >
-                          <span className="text-[11px] font-bold text-slate-800">+1 Week</span>
-                          <span className="text-[9px] text-slate-500 font-mono">10:30 AM</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-2.5">
+              {filteredNoNextAction.map((q) => (
+                <UnifiedLeadCard
+                  key={q.id}
+                  quotation={q}
+                  followup={undefined}
+                  isSelected={selectedIds.has(q.id)}
+                  showCheckbox={false}
+                  onOpenQuotation={onOpenQuotation}
+                  onOpenDoneModal={(fup) => onOpenDoneModal(fup)}
+                  onOpenRecordAction={(quote, initialType) =>
+                    setActionModalQuote({ quote, initialType })
+                  }
+                  onQuickUpdateTemp={handleQuickUpdateTemp}
+                />
+              ))}
             </div>
           </section>
         )}
@@ -1712,14 +1182,249 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
         onConfirm={handleBulkRescheduleConfirm}
       />
 
-      {/* Record Direct Action Modal */}
+      {/* Record Direct Action / Follow-Up Completion Modal */}
       {actionModalQuote && (
         <RecordActionModal
           quotation={actionModalQuote.quote}
+          followup={actionModalQuote.followup}
           initialType={actionModalQuote.initialType}
           onClose={() => setActionModalQuote(null)}
           onSuccess={onRefresh}
         />
+      )}
+
+      {/* Floating Prompt to record outcome after Call / WhatsApp */}
+      {pendingActionPrompt && (
+        <div className="fixed bottom-20 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:w-96 z-40 bg-slate-900 text-white rounded-2xl p-4 shadow-2xl border border-slate-700/80 animate-in slide-in-from-bottom-5">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0">
+                {pendingActionPrompt.type === 'Call' ? (
+                  <Phone className="w-4 h-4" />
+                ) : (
+                  <MessageCircle className="w-4 h-4" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium text-slate-300">
+                  {pendingActionPrompt.type === 'Call' ? 'Phone dialer opened' : 'WhatsApp opened'}
+                </p>
+                <p className="text-sm font-bold text-white truncate">
+                  {pendingActionPrompt.quote.client_name}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setPendingActionPrompt(null)}
+              className="text-slate-400 hover:text-white p-1 rounded-lg transition"
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              onClick={() => {
+                const prompt = pendingActionPrompt;
+                setPendingActionPrompt(null);
+                if (prompt.followup) {
+                  onOpenDoneModal(prompt.followup);
+                } else {
+                  setActionModalQuote({
+                    quote: prompt.quote,
+                    initialType: prompt.type,
+                  });
+                }
+              }}
+              className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs py-2 shadow-xs transition active:scale-95"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Record Outcome</span>
+            </button>
+            <button
+              onClick={() => setPendingActionPrompt(null)}
+              className="px-3 min-h-[40px] text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition"
+            >
+              Later
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Filter & Sort Drawer / Bottom Sheet */}
+      {mobileFilterOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:hidden">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setMobileFilterOpen(false)}
+          />
+
+          {/* Sheet */}
+          <div className="relative w-full max-h-[85vh] overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl border-t border-slate-200 z-10 animate-in slide-in-from-bottom-5">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Filter className="w-5 h-5 text-teal-600" />
+                <h3 className="text-base font-bold text-slate-900">Filter & Sort Leads</h3>
+                {activeFiltersCount > 0 && (
+                  <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs font-bold text-teal-800">
+                    {activeFiltersCount}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => setMobileFilterOpen(false)}
+                className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 py-4">
+              {/* Temperature */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Lead Temperature
+                </label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {(['all', 'hot', 'warm', 'cold'] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setTempFilter(t)}
+                      className={`min-h-[38px] rounded-xl text-xs font-semibold capitalize border transition active:scale-95 ${
+                        tempFilter === t
+                          ? 'bg-teal-600 border-teal-700 text-white shadow-2xs'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Deal Size */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Deal Size
+                </label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { id: 'all', label: 'All Values' },
+                    { id: 'under_5l', label: '< ₹5 Lakhs' },
+                    { id: '5l_15l', label: '₹5L - ₹15L' },
+                    { id: 'over_15l', label: '> ₹15 Lakhs' },
+                  ].map((range) => (
+                    <button
+                      key={range.id}
+                      type="button"
+                      onClick={() => setAmountFilter(range.id)}
+                      className={`min-h-[38px] rounded-xl text-xs font-semibold border transition active:scale-95 ${
+                        amountFilter === range.id
+                          ? 'bg-teal-600 border-teal-700 text-white shadow-2xs'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {range.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sort By */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Sort Order
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { id: 'urgency', label: 'Urgency' },
+                    { id: 'amount_desc', label: 'Value: High' },
+                    { id: 'temperature', label: 'Hot First' },
+                  ].map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setSortBy(s.id as SortOption)}
+                      className={`min-h-[38px] rounded-xl text-xs font-semibold border transition active:scale-95 ${
+                        sortBy === s.id
+                          ? 'bg-teal-600 border-teal-700 text-white shadow-2xs'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Owner */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Sales Owner
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { id: 'all', label: 'All' },
+                    { id: 'Pranjal', label: 'Pranjal' },
+                    { id: 'Shubham', label: 'Shubham' },
+                  ].map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      onClick={() => setOwnerFilter(o.id)}
+                      className={`min-h-[38px] rounded-xl text-xs font-semibold border transition active:scale-95 ${
+                        ownerFilter === o.id
+                          ? 'bg-teal-600 border-teal-700 text-white shadow-2xs'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Future scheduled followups toggle */}
+              <div className="pt-1">
+                <label className="flex items-center gap-2.5 cursor-pointer bg-slate-50 border border-slate-200 p-3 rounded-xl">
+                  <input
+                    type="checkbox"
+                    checked={showFutureScheduled}
+                    onChange={(e) => setShowFutureScheduled(e.target.checked)}
+                    className="w-4 h-4 rounded text-teal-600 border-slate-300 focus:ring-teal-500"
+                  />
+                  <span className="text-xs font-semibold text-slate-800">
+                    Include upcoming follow-ups beyond today
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="mt-2 pt-3 border-t border-slate-100 flex items-center gap-2">
+              {activeFiltersCount > 0 && (
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="min-h-[44px] px-4 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 active:scale-95 transition"
+                >
+                  Clear All
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setMobileFilterOpen(false)}
+                className="flex-1 min-h-[44px] rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs py-2 shadow-2xs active:scale-95 transition"
+              >
+                Apply & View Leads ({filteredFollowups.length})
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

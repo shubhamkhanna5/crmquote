@@ -268,7 +268,17 @@ export function createExpressApp() {
       if (!quote) {
         return res.status(404).json({ error: 'Quotation not found' });
       }
-      res.json(quote);
+      const client = quote.client_id ? db.getClientById(quote.client_id, DEFAULT_WORKSPACE_ID) : null;
+      const followups = db.getFollowUpsByQuotationId(quote.id, DEFAULT_WORKSPACE_ID);
+      const activities = db.getActivitiesByQuotationId(quote.id, DEFAULT_WORKSPACE_ID);
+
+      res.json({
+        quotation: quote,
+        client,
+        followups,
+        activities,
+        ...quote,
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -319,6 +329,63 @@ export function createExpressApp() {
 
       const updated = db.updateQuotation(req.params.id, updates, DEFAULT_WORKSPACE_ID);
       res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Record Direct Action on Quotation
+  apiRouter.post('/quotations/:id/action', (req, res) => {
+    try {
+      const { type, outcome, notes, app_status, temperature } = req.body;
+      const quote = db.getQuotationById(req.params.id, DEFAULT_WORKSPACE_ID);
+      if (!quote) {
+        return res.status(404).json({ error: 'Quotation not found' });
+      }
+
+      const updates: Partial<Quotation> = {};
+      if (app_status) updates.app_status = app_status;
+      if (temperature) updates.temperature = temperature;
+      if (outcome === 'Not interested') {
+        updates.app_status = 'Lost';
+        updates.temperature = 'cold';
+      }
+      if (notes) {
+        updates.internal_notes = quote.internal_notes
+          ? `${quote.internal_notes}\n[${type || 'Action'} - ${outcome || 'Logged'}]: ${notes}`
+          : `[${type || 'Action'} - ${outcome || 'Logged'}]: ${notes}`;
+      }
+
+      const updatedQuote = db.updateQuotation(req.params.id, updates, DEFAULT_WORKSPACE_ID);
+
+      const followup = db.createFollowUp(
+        {
+          quotation_id: quote.id,
+          scheduled_date: new Date().toISOString().split('T')[0],
+          scheduled_time: '10:30',
+          type: type || 'Call',
+          notes,
+        },
+        DEFAULT_WORKSPACE_ID
+      );
+
+      followup.status = 'Completed';
+      followup.outcome = outcome || 'Spoke to client';
+      followup.completed_at = new Date().toISOString();
+
+      db.addActivity({
+        workspace_id: DEFAULT_WORKSPACE_ID,
+        quotation_id: quote.id,
+        activity_type: 'followup_completed',
+        description: `Action logged: ${type || 'Action'} — ${outcome || 'Completed'}${notes ? ` ("${notes}")` : ''}`,
+        metadata: {
+          type,
+          outcome,
+          notes,
+        },
+      });
+
+      res.json({ followup, quotation: updatedQuote });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -429,7 +496,7 @@ export function createExpressApp() {
   });
 
   // Complete Follow-up (PRD Section 42 & 43)
-  apiRouter.post('/followups/:id/complete', (req, res) => {
+  apiRouter.post(['/followups/:id/complete', '/followups/:id/done'], (req, res) => {
     try {
       const {
         outcome,
@@ -468,10 +535,12 @@ export function createExpressApp() {
         DEFAULT_WORKSPACE_ID
       );
 
-      if (temperature || app_status) {
+      const finalTemp = outcome === 'Not interested' ? 'cold' : temperature;
+      const finalStatus = outcome === 'Not interested' ? 'Lost' : app_status;
+      if (finalTemp || finalStatus) {
         const quoteId = result?.completed?.quotation_id;
         if (quoteId) {
-          db.updateQuotation(quoteId, { temperature, app_status }, DEFAULT_WORKSPACE_ID);
+          db.updateQuotation(quoteId, { temperature: finalTemp, app_status: finalStatus }, DEFAULT_WORKSPACE_ID);
         }
       }
 

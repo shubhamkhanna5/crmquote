@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { RotateCw, X } from 'lucide-react';
 import { FollowUp } from '../types';
+import { formatDDMMYYYY } from '../utils/dateUtils';
+import { useToast } from './Toast';
 
 interface RescheduleModalProps {
   followup: FollowUp | null;
@@ -13,6 +15,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
   onClose,
   onReschedule,
 }) => {
+  const { showToast } = useToast();
   const [option, setOption] = useState<'tomorrow' | '3_days' | 'next_week' | 'custom'>('tomorrow');
 
   const getDateForOption = (opt: 'tomorrow' | '3_days' | 'next_week') => {
@@ -40,7 +43,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
       await onReschedule(followup.id, finalDate, time);
       onClose();
     } catch (err: any) {
-      alert(err.message || 'Failed to reschedule');
+      showToast(err.message || 'Failed to reschedule', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -78,7 +81,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
             <p className="flex items-center justify-between">
               <span>Current Schedule:</span>
               <span className="font-semibold text-slate-800">
-                {followup.scheduled_date} at {followup.scheduled_time}
+                {formatDDMMYYYY(followup.scheduled_date)} at {followup.scheduled_time}
               </span>
             </p>
           </div>
@@ -126,6 +129,11 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
                 onChange={(e) => setCustomDate(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-cyan-600 focus:outline-none shadow-xs"
               />
+              {customDate && (
+                <span className="text-[10px] text-cyan-700 font-mono mt-0.5 block">
+                  Target: {formatDDMMYYYY(customDate)}
+                </span>
+              )}
             </div>
           )}
 

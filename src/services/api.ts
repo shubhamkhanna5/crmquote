@@ -58,7 +58,21 @@ export const api = {
   }> {
     const res = await fetch(`/api/quotations/${id}`);
     if (!res.ok) throw new Error('Failed to load quotation');
-    return res.json();
+    const data = await res.json();
+    if (data && data.quotation) {
+      return {
+        quotation: data.quotation,
+        client: data.client || null,
+        followups: data.followups || [],
+        activities: data.activities || [],
+      };
+    }
+    return {
+      quotation: data,
+      client: data?.client || null,
+      followups: data?.followups || [],
+      activities: data?.activities || [],
+    };
   },
 
   async updateQuotationAppFields(
@@ -118,6 +132,7 @@ export const api = {
       outcome?: FollowUpOutcome;
       notes?: string;
       app_status?: AppStatus;
+      temperature?: Temperature;
     }
   ): Promise<{ followup: FollowUp; quotation: Quotation }> {
     const res = await fetch(`/api/quotations/${id}/action`, {
@@ -144,7 +159,7 @@ export const api = {
     scheduled_date: string;
     scheduled_time?: string;
     type?: FollowUpType;
-    notes?: string;
+    notes?: string | null;
   }): Promise<FollowUp> {
     const res = await fetch('/api/followups', {
       method: 'POST',
@@ -160,6 +175,8 @@ export const api = {
     data: {
       outcome: FollowUpOutcome;
       notes?: string;
+      temperature?: Temperature;
+      app_status?: AppStatus;
       nextAction?: {
         type: 'tomorrow' | '3_days' | '7_days' | 'custom' | 'none';
         customDate?: string;

@@ -20,6 +20,7 @@ import {
 import { WorkspaceSettings, SyncRun, Quotation, Client, FollowUp } from '../types';
 import { api } from '../services/api';
 import { GoogleCalendarButton } from './GoogleCalendarButton';
+import { useToast } from './Toast';
 
 interface SettingsViewProps {
   settings: WorkspaceSettings;
@@ -44,6 +45,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   isSyncing,
   onSettingsUpdated,
 }) => {
+  const { showToast } = useToast();
   const [sheetId, setSheetId] = useState(settings.sheet_id);
   const [sheetGid, setSheetGid] = useState(settings.sheet_gid);
   const [autoSync, setAutoSync] = useState(settings.auto_sync_interval);
@@ -65,9 +67,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     try {
       const res = await api.pushToSupabase();
       setSupabaseSyncMsg(res.message);
+      showToast(res.message || 'Pushed data to Supabase', 'success');
       onSettingsUpdated();
     } catch (err: any) {
-      alert(err.message || 'Failed to sync to Supabase');
+      showToast(err.message || 'Failed to sync to Supabase', 'error');
     } finally {
       setIsSyncingSupabase(false);
     }
@@ -79,9 +82,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     try {
       const res = await api.pullFromSupabase();
       setSupabaseSyncMsg(res.message);
+      showToast(res.message || 'Pulled data from Supabase', 'success');
       onSettingsUpdated();
     } catch (err: any) {
-      alert(err.message || 'Failed to pull from Supabase');
+      showToast(err.message || 'Failed to pull from Supabase', 'error');
     } finally {
       setIsSyncingSupabase(false);
     }
@@ -101,10 +105,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         supabase_key: supabaseKey.trim() || undefined,
       });
       setSaveSuccess(true);
+      showToast('Settings saved successfully', 'success');
       setTimeout(() => setSaveSuccess(false), 3000);
       onSettingsUpdated();
     } catch (err: any) {
-      alert(err.message || 'Failed to update settings');
+      showToast(err.message || 'Failed to update settings', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -253,7 +258,7 @@ CREATE TABLE IF NOT EXISTS public.followups (
   };
 
   return (
-    <div className="space-y-6 pb-20 md:pb-8 max-w-4xl">
+    <div className="space-y-6 pb-mobile-nav md:pb-8 max-w-4xl">
       {/* Header */}
       <div>
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">

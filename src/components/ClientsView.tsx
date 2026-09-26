@@ -14,6 +14,7 @@ import { Client, Quotation, isTrialRecord } from '../types';
 import { formatIndianCurrency } from '../../server/normalizer';
 import { parsePoolDimensions } from '../utils/poolUtils';
 import { getClientLocation } from '../utils/locationUtils';
+import { formatDDMMYYYY } from '../utils/dateUtils';
 
 interface ClientsViewProps {
   clients: Client[];
@@ -94,7 +95,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
     : [];
 
   return (
-    <div className="space-y-5 pb-20 md:pb-8">
+    <div className="space-y-5 pb-mobile-nav md:pb-8">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -298,7 +299,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                         )}
                       </p>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        Date: {q.quotation_date} · Status: {q.app_status}
+                        Date: {formatDDMMYYYY(q.quotation_date)} · Status: {q.app_status}
                       </p>
                     </div>
                     <div className="text-right">

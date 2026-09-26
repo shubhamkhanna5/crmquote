@@ -110,7 +110,7 @@ export const NewQuotationModal: React.FC<NewQuotationModalProps> = ({
   });
   const [followUpTime, setFollowUpTime] = useState('10:30');
   const [followUpType, setFollowUpType] = useState<FollowUpType>('Call');
-  const [followUpNotes, setFollowUpNotes] = useState('Initial follow-up to discuss quote and pool specifications');
+  const [followUpNotes, setFollowUpNotes] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [clientSearch, setClientSearch] = useState('');

@@ -32,7 +32,13 @@ import {
   STAGE_OPTIONS,
   TEMPERATURE_OPTIONS,
 } from '../utils/quotationActions';
-import { getQuotationLocation } from '../utils/locationUtils';
+import {
+  getQuotationLocation,
+  getQuotationState,
+  isLocationMatch,
+} from '../utils/locationUtils';
+import { UnifiedLeadCard } from './UnifiedLeadCard';
+import { formatDDMMYYYY } from '../utils/dateUtils';
 
 interface QuotationsViewProps {
   quotations: Quotation[];
@@ -88,7 +94,7 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
         scheduled_date: scheduledDate,
         scheduled_time: '10:30',
         type: 'Call',
-        notes: 'Quick scheduled call',
+        notes: null,
       });
 
       if (isGoogleCalendarConnected()) {
@@ -189,11 +195,12 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
   );
 
   // Derive unique locations with counts from all valid quotations
+  // Resolves states so "Gokarna, Karnataka", "Gokarna", "Bangalore" all group under "Karnataka"
   const locationCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     validUserQuotes.forEach((q) => {
-      const loc = getQuotationLocation(q);
-      counts[loc] = (counts[loc] || 0) + 1;
+      const stateOrLoc = getQuotationState(q);
+      counts[stateOrLoc] = (counts[stateOrLoc] || 0) + 1;
     });
     return counts;
   }, [validUserQuotes]);
@@ -223,7 +230,8 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
         (q.pool_dimensions && q.pool_dimensions.toLowerCase().includes(s)) ||
         (q.pool_type && q.pool_type.toLowerCase().includes(s)) ||
         (q.sender_name && q.sender_name.toLowerCase().includes(s)) ||
-        (getQuotationLocation(q).toLowerCase().includes(s));
+        getQuotationLocation(q).toLowerCase().includes(s) ||
+        getQuotationState(q).toLowerCase().includes(s);
       if (!match) return false;
     }
 
@@ -236,10 +244,11 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
     // Priority
     if (priorityFilter !== 'All' && q.priority !== priorityFilter) return false;
 
-    // Location Filter
+    // Location / State Filter
     if (locationFilter !== 'All') {
+      const state = getQuotationState(q);
       const loc = getQuotationLocation(q);
-      if (loc !== locationFilter) return false;
+      if (state !== locationFilter && !isLocationMatch(loc, locationFilter)) return false;
     }
 
     // Pool Type
@@ -354,7 +363,7 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
   };
 
   return (
-    <div className="space-y-5 pb-20 md:pb-8">
+    <div className="space-y-5 pb-mobile-nav md:pb-8">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -816,7 +825,7 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
 
                       {/* Date & Aging */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div>{q.quotation_date}</div>
+                        <div className="font-medium text-slate-200">{formatDDMMYYYY(q.quotation_date)}</div>
                         <div className="text-[10px] text-slate-500 font-mono">
                           {q.age_days} days old
                         </div>
@@ -891,7 +900,7 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
                                   : 'bg-slate-800 text-slate-300'
                               }`}
                             >
-                              {q.next_followup.scheduled_date}
+                              {formatDDMMYYYY(q.next_followup.scheduled_date)}
                             </span>
                             <div className="text-[10px] text-slate-400 mt-0.5">
                               {q.next_followup.type} at {q.next_followup.scheduled_time}
@@ -1007,240 +1016,24 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
             </table>
           </div>
 
-          {/* Mobile Cards Layout (visible on mobile, hidden on md+) - PRD Section 70 & 99 */}
-          <div className="md:hidden space-y-3">
-            {filteredQuotations.map((q) => {
-              const phoneClean = q.contact_number.replace(/\s+/g, '');
-              const waUrl = generateWhatsAppUrl(
-                q.contact_number,
-                q.client_name,
-                q.pool_type,
-                q.quotation_price
-              );
-              const isSchedulingThis = schedulingQuoteId === q.id;
-
-              return (
-                <div
-                  key={q.id}
-                  onClick={() => onOpenQuotation(q.id)}
-                  className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 shadow-sm active:bg-slate-800/60 transition"
-                >
-                  {/* Card Header: Client & Temperature */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="text-base font-bold text-white leading-tight">
-                        {q.client_name}
-                      </h3>
-                      <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
-                        <span>📞 {q.contact_number}</span>
-                        <span className="inline-flex items-center gap-0.5 text-cyan-300 font-medium">
-                          <MapPin className="w-3 h-3 text-cyan-400 shrink-0" />
-                          {getQuotationLocation(q)}
-                        </span>
-                      </div>
-                    </div>
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        title="Click to toggle temperature"
-                        onClick={() => {
-                          const nextTemp =
-                            q.temperature === 'hot'
-                              ? 'warm'
-                              : q.temperature === 'warm'
-                              ? 'cold'
-                              : 'hot';
-                          handleQuickUpdateTemp(q, nextTemp);
-                        }}
-                        className="cursor-pointer transition active:scale-95"
-                      >
-                        {getTemperatureBadge(q.temperature)}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Price & Specs */}
-                  <div className="mt-2.5 flex items-baseline justify-between border-t border-slate-800/80 pt-2">
-                    <p className="text-lg font-extrabold text-cyan-400">
-                      {formatIndianCurrency(q.quotation_price)}
-                    </p>
-                    <span className="text-xs text-slate-300 font-medium">
-                      {q.pool_type || 'Pool'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs text-slate-400 mt-1.5 gap-2 flex-wrap">
-                    {q.pool_dimensions ? (
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="inline-flex items-center gap-1 rounded bg-slate-800 border border-slate-700/80 px-2 py-0.5 text-[11px] font-semibold text-cyan-300">
-                          📏 {parsePoolDimensions(q.pool_dimensions)?.formatted || q.pool_dimensions}
-                        </span>
-                        {parsePoolDimensions(q.pool_dimensions)?.surfaceAreaSqFt ? (
-                          <span className="text-[11px] text-slate-400 font-medium">
-                            ({parsePoolDimensions(q.pool_dimensions)?.surfaceAreaSqFt} sq.ft)
-                          </span>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <span className="text-slate-500 text-xs">Size: —</span>
-                    )}
-
-                    {/* Interactive Mobile Stage Changer */}
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <select
-                        value={q.app_status}
-                        disabled={updatingQuoteId === q.id}
-                        onChange={(e) =>
-                          handleQuickUpdateStatus(q, e.target.value as AppStatus)
-                        }
-                        className="text-[11px] font-semibold rounded-lg border border-slate-700 bg-slate-800 py-1 px-1.5 text-slate-200 focus:outline-none focus:border-cyan-500 cursor-pointer shadow-2xs"
-                      >
-                        {STAGE_OPTIONS.map((st) => (
-                          <option key={st.status} value={st.status} className="bg-slate-900 text-slate-200">
-                            {st.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Next Follow-up Banner */}
-                  <div className="mt-3 rounded-xl bg-slate-950/70 p-2.5 flex items-center justify-between text-xs border border-slate-800/60">
-                    <span className="text-slate-400">Next Action:</span>
-                    {q.next_followup ? (
-                      <span
-                        className={`font-semibold px-2 py-0.5 rounded-md ${
-                          q.next_followup.status === 'Overdue'
-                            ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                            : q.next_followup.status === 'Due'
-                            ? 'bg-cyan-950 text-cyan-300 border border-cyan-800'
-                            : 'bg-slate-800 text-slate-300'
-                        }`}
-                      >
-                        {q.next_followup.scheduled_date} · {q.next_followup.type}
-                      </span>
-                    ) : q.has_action_taken || q.latest_completed_followup ? (
-                      <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        {q.latest_completed_followup?.outcome || 'Action Taken'}
-                      </span>
-                    ) : (
-                      <span className="text-amber-400 font-semibold flex items-center gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        No Next Action
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Quick Mobile Action Bar */}
-                  <div
-                    className="mt-3 pt-2.5 border-t border-slate-800/80"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {q.next_followup ? (
-                      <div className="flex flex-col gap-1.5">
-                        <div className="grid grid-cols-3 gap-1.5">
-                          <a
-                            href={`tel:${phoneClean}`}
-                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-slate-800 border border-slate-700 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 active:scale-95 touch-manipulation transition shadow-2xs"
-                            title={`Call ${q.client_name}`}
-                          >
-                            <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
-                            <span>Call</span>
-                          </a>
-
-                          <a
-                            href={waUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-emerald-600 border border-emerald-700 py-2 text-xs font-bold text-white hover:bg-emerald-500 active:scale-95 touch-manipulation transition shadow-2xs"
-                            title="Send WhatsApp message"
-                          >
-                            <MessageCircle className="w-4 h-4 shrink-0" />
-                            <span>WhatsApp</span>
-                          </a>
-
-                          <button
-                            type="button"
-                            onClick={() => onOpenDoneModal(q.next_followup!)}
-                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-teal-600 hover:bg-teal-500 py-2 text-xs font-bold text-white active:scale-95 touch-manipulation transition shadow-2xs"
-                            title="Complete Follow-Up"
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span>Done</span>
-                          </button>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => onOpenRescheduleModal(q.next_followup!)}
-                          className="w-full min-h-[38px] flex items-center justify-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/90 py-1 px-3 text-xs font-medium text-slate-300 active:scale-95 touch-manipulation transition"
-                          title="Reschedule follow-up"
-                        >
-                          <RotateCw className="w-3.5 h-3.5 text-cyan-400" />
-                          <span>Reschedule / Later</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-1.5">
-                        <div className="grid grid-cols-3 gap-1.5">
-                          <a
-                            href={`tel:${phoneClean}`}
-                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-slate-800 border border-slate-700 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 active:scale-95 touch-manipulation transition"
-                          >
-                            <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
-                            <span>Call</span>
-                          </a>
-
-                          <a
-                            href={waUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-emerald-600 border border-emerald-700 py-2 text-xs font-bold text-white hover:bg-emerald-500 active:scale-95 touch-manipulation transition"
-                          >
-                            <MessageCircle className="w-4 h-4 shrink-0" />
-                            <span>WhatsApp</span>
-                          </a>
-
-                          <button
-                            type="button"
-                            onClick={() => setActionModalQuote(q)}
-                            className="min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-teal-600 border border-teal-700 py-2 text-xs font-bold text-white hover:bg-teal-500 active:scale-95 touch-manipulation transition"
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
-                            <span>Action</span>
-                          </button>
-                        </div>
-
-                        {/* 1-Click Schedule Chips on Mobile Card */}
-                        <div className="grid grid-cols-3 gap-1.5 pt-0.5">
-                          <button
-                            disabled={isSchedulingThis}
-                            onClick={() => handleQuickSchedule(q, 1)}
-                            className="min-h-[38px] rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-xs font-bold text-amber-300 text-center transition active:scale-95 touch-manipulation disabled:opacity-50"
-                          >
-                            Tomorrow
-                          </button>
-                          <button
-                            disabled={isSchedulingThis}
-                            onClick={() => handleQuickSchedule(q, 3)}
-                            className="min-h-[38px] rounded-lg bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/40 text-xs font-bold text-teal-300 text-center transition active:scale-95 touch-manipulation disabled:opacity-50"
-                          >
-                            +3 Days
-                          </button>
-                          <button
-                            onClick={() => onOpenNewFollowUpForQuotation(q.id)}
-                            className="min-h-[38px] rounded-lg bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-300 text-center transition active:scale-95 touch-manipulation"
-                          >
-                            + Custom
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          {/* Mobile Cards Layout (visible on mobile, hidden on md+) - Single Unified Card Style */}
+          <div className="md:hidden space-y-2.5">
+            {filteredQuotations.map((q) => (
+              <UnifiedLeadCard
+                key={q.id}
+                quotation={q}
+                followup={q.next_followup}
+                isSelected={false}
+                showCheckbox={false}
+                onOpenQuotation={onOpenQuotation}
+                onOpenDoneModal={onOpenDoneModal}
+                onOpenRecordAction={(quote, initialType) =>
+                  setActionModalQuote(quote)
+                }
+                onOpenRescheduleModal={onOpenRescheduleModal}
+                onQuickUpdateTemp={handleQuickUpdateTemp}
+              />
+            ))}
           </div>
         </>
       )}

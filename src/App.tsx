@@ -40,6 +40,7 @@ import {
   matchesActiveUser,
   isTrialRecord,
   AppStatus,
+  Temperature,
 } from './types';
 import { api } from './services/api';
 import { formatIndianCurrency } from '../server/normalizer';
@@ -168,7 +169,7 @@ export default function App() {
       setLatestSync(run);
       await loadData(true);
     } catch (err: any) {
-      alert(err.message || 'Synchronization failed');
+      showToast(err.message || 'Synchronization failed', 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -178,6 +179,8 @@ export default function App() {
   const handleCompleteFollowUp = async (data: {
     outcome: FollowUpOutcome;
     notes?: string;
+    temperature?: Temperature;
+    app_status?: AppStatus;
     nextAction?: {
       type: 'tomorrow' | '3_days' | '7_days' | 'custom' | 'none';
       customDate?: string;
@@ -420,7 +423,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 font-sans text-slate-800 antialiased selection:bg-teal-500 selection:text-white">
+    <div className="flex h-screen h-[100dvh] w-screen overflow-hidden bg-slate-50 font-sans text-slate-800 antialiased selection:bg-teal-500 selection:text-white">
         {/* Offline Alert Indicator */}
       <OfflineIndicator />
 
@@ -440,7 +443,7 @@ export default function App() {
       />
 
       {/* Main View Area */}
-      <main className="flex-1 overflow-y-auto bg-slate-50 px-3 py-3 sm:px-8 sm:py-6 pb-28 md:pb-8">
+      <main className="flex-1 overflow-y-auto bg-slate-50 px-3 py-3 sm:px-8 sm:py-6 md:pb-8">
         <div className="mx-auto max-w-7xl">
           {/* Mobile Sticky Top Header (md:hidden) */}
           <div className="md:hidden sticky top-0 z-30 -mx-3 -mt-3 mb-3 bg-white/95 px-3 py-2.5 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
@@ -660,10 +663,11 @@ export default function App() {
         />
       )}
 
-      {/* 2. Follow-Up Done Modal (10 outcomes + Next Action) */}
+      {/* 2. Follow-Up Done Modal (Outcomes + Next Action) */}
       {doneModalFollowup && (
         <FollowUpDoneModal
           followup={doneModalFollowup}
+          quotation={quotations.find((q) => q.id === doneModalFollowup.quotation_id)}
           onClose={() => setDoneModalFollowup(null)}
           onSave={handleCompleteFollowUp}
         />

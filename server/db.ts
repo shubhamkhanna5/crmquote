@@ -101,6 +101,53 @@ class Database {
           if (store.followups.length !== initialFollowupLen) {
             storeNeedsSave = true;
           }
+
+          // Sanitize automated placeholder/boilerplate notes on followups
+          const PLACEHOLDER_NOTE_SET = new Set([
+            'initial follow-up for imported quotation',
+            'initial follow-up to discuss quote and pool specifications',
+            'initial follow-up',
+            'batch scheduled follow-up',
+            'follow-up date from google sheet',
+            'day 3 follow-up',
+            'quick scheduled call',
+            'quick scheduled whatsapp',
+            'quick scheduled email',
+            'quick scheduled visit',
+            'quick scheduled follow-up',
+            'routine follow-up call',
+            'routine follow-up',
+            'scheduled follow-up',
+            'follow-up',
+            'followup',
+            'none',
+            'n/a',
+            'null',
+            'undefined',
+            '-',
+            '--',
+            'no notes',
+            'action taken',
+          ]);
+          const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+          for (const f of store.followups) {
+            if (f.notes) {
+              const trimmed = f.notes.trim();
+              const lower = trimmed.toLowerCase();
+              if (
+                PLACEHOLDER_NOTE_SET.has(lower) ||
+                UUID_REGEX.test(trimmed) ||
+                lower.startsWith('quick scheduled') ||
+                lower.startsWith('batch scheduled') ||
+                lower.startsWith('initial follow-up for') ||
+                lower.startsWith('initial follow up for')
+              ) {
+                f.notes = null;
+                storeNeedsSave = true;
+              }
+            }
+          }
         }
 
         if (storeNeedsSave) {
@@ -892,7 +939,7 @@ class Database {
           scheduled_date: quoteData.initial_followup.scheduled_date,
           scheduled_time: quoteData.initial_followup.scheduled_time || '10:30',
           type: quoteData.initial_followup.type || 'Call',
-          notes: quoteData.initial_followup.notes || 'Initial follow-up scheduled with quote creation',
+          notes: quoteData.initial_followup.notes ? quoteData.initial_followup.notes.trim() : null,
         },
         workspaceId
       );
@@ -1173,6 +1220,29 @@ class Database {
     if (scheduledDate < today) status = 'Overdue';
     else if (scheduledDate === today) status = 'Due';
 
+    let cleanNotes = data.notes ? data.notes.trim() : null;
+    if (cleanNotes) {
+      const lower = cleanNotes.toLowerCase();
+      if (
+        lower === 'initial follow-up for imported quotation' ||
+        lower === 'initial follow-up to discuss quote and pool specifications' ||
+        lower === 'initial follow-up' ||
+        lower === 'batch scheduled follow-up' ||
+        lower === 'follow-up date from google sheet' ||
+        lower === 'day 3 follow-up' ||
+        lower === 'routine follow-up call' ||
+        lower === 'none' ||
+        lower === 'n/a' ||
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanNotes) ||
+        lower.startsWith('quick scheduled') ||
+        lower.startsWith('batch scheduled') ||
+        lower.startsWith('initial follow-up for') ||
+        lower.startsWith('initial follow up for')
+      ) {
+        cleanNotes = null;
+      }
+    }
+
     const followup: FollowUp = {
       id: crypto.randomUUID(),
       workspace_id: workspaceId,
@@ -1181,7 +1251,7 @@ class Database {
       scheduled_time: data.scheduled_time || '10:30',
       type: data.type || 'Call',
       status,
-      notes: data.notes || null,
+      notes: cleanNotes,
       created_at: now,
       updated_at: now,
     };
@@ -1273,6 +1343,7 @@ class Database {
     if (quote) {
       if (data.outcome === 'Not interested') {
         quote.app_status = 'Lost';
+        quote.temperature = 'cold';
       }
       quote.updated_at = now;
       this.syncQuotationToSupabase(quote);
