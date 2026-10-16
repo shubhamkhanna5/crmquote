@@ -23,7 +23,7 @@ import {
   CalendarDays,
   Zap,
 } from 'lucide-react';
-import { FollowUp, Quotation, DashboardMetrics, isTrialRecord, AppStatus, Temperature, FollowUpType } from '../types';
+import { FollowUp, Quotation, DashboardMetrics, isTrialRecord, AppStatus, Temperature, FollowUpType, ActiveUser } from '../types';
 import { formatIndianCurrency } from '../../server/normalizer';
 import { useToast } from './Toast';
 import { BulkRescheduleModal } from './BulkRescheduleModal';
@@ -43,11 +43,18 @@ import { getQuotationLocation, getQuotationState } from '../utils/locationUtils'
 import { UnifiedLeadCard } from './UnifiedLeadCard';
 import { getActualNote } from '../utils/notesUtils';
 import { formatDDMMYYYY } from '../utils/dateUtils';
+import {
+  computeQuotationPriority,
+  sortBySmartPriority,
+  sortByFIFO,
+  sortByLIFO,
+} from '../utils/priorityUtils';
 
 interface MyDayViewProps {
   metrics: DashboardMetrics | null;
   followups: FollowUp[];
   quotations: Quotation[];
+  activeUser?: ActiveUser;
   onOpenQuotation: (quotationId: string) => void;
   onOpenDoneModal: (followup: FollowUp) => void;
   onOpenRescheduleModal: (followup: FollowUp) => void;
@@ -58,12 +65,22 @@ interface MyDayViewProps {
 }
 
 type KpiFilter = 'all' | 'overdue' | 'due_today' | 'no_next_action' | 'upcoming';
-type SortOption = 'urgency' | 'deadline_asc' | 'deadline_desc' | 'amount_desc' | 'amount_asc' | 'temperature';
+export type SortOption =
+  | 'auto_priority'
+  | 'lifo'
+  | 'fifo'
+  | 'urgency'
+  | 'deadline_asc'
+  | 'deadline_desc'
+  | 'amount_desc'
+  | 'amount_asc'
+  | 'temperature';
 
 export const MyDayView: React.FC<MyDayViewProps> = ({
   metrics,
   followups: rawFollowups,
   quotations: rawQuotations,
+  activeUser,
   onOpenQuotation,
   onOpenDoneModal,
   onOpenRescheduleModal,
@@ -75,14 +92,14 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
   const { showToast } = useToast();
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // View preferences
+  // View preferences (Default to auto_priority: automatically figures out FIFO vs LIFO priority)
   const [kpiFilter, setKpiFilter] = useState<KpiFilter>('all');
   const [showFutureScheduled, setShowFutureScheduled] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [tempFilter, setTempFilter] = useState<string>('all');
   const [ownerFilter, setOwnerFilter] = useState<string>('all');
   const [amountFilter, setAmountFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<SortOption>('urgency');
+  const [sortBy, setSortBy] = useState<SortOption>('auto_priority');
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -207,6 +224,24 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
 
     // Sort
     list.sort((a, b) => {
+      if (sortBy === 'auto_priority') {
+        const quoteA = a.quotation;
+        const quoteB = b.quotation;
+        const scoreA = quoteA ? computeQuotationPriority(quoteA, a).score : 0;
+        const scoreB = quoteB ? computeQuotationPriority(quoteB, b).score : 0;
+        if (scoreA !== scoreB) return scoreB - scoreA;
+        return a.scheduled_date.localeCompare(b.scheduled_date);
+      }
+      if (sortBy === 'fifo') {
+        const dateA = a.quotation?.quotation_date || a.scheduled_date;
+        const dateB = b.quotation?.quotation_date || b.scheduled_date;
+        return dateA.localeCompare(dateB);
+      }
+      if (sortBy === 'lifo') {
+        const dateA = a.quotation?.quotation_date || a.scheduled_date;
+        const dateB = b.quotation?.quotation_date || b.scheduled_date;
+        return dateB.localeCompare(dateA);
+      }
       if (sortBy === 'urgency') {
         const statusRank: Record<string, number> = { Overdue: 1, Due: 2, Scheduled: 3 };
         const rankA = statusRank[a.status] || 4;
@@ -278,8 +313,30 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
       });
     }
 
+    // Sort No Next Action quotes using FIFO / LIFO / Smart Auto Priority
+    list.sort((a, b) => {
+      if (sortBy === 'fifo') {
+        return (a.quotation_date || '').localeCompare(b.quotation_date || '');
+      }
+      if (sortBy === 'lifo') {
+        return (b.quotation_date || '').localeCompare(a.quotation_date || '');
+      }
+      if (sortBy === 'amount_desc') {
+        return (b.quotation_price || 0) - (a.quotation_price || 0);
+      }
+      if (sortBy === 'temperature') {
+        const tempRank: Record<string, number> = { hot: 1, warm: 2, cold: 3 };
+        return (tempRank[a.temperature || ''] || 4) - (tempRank[b.temperature || ''] || 4);
+      }
+      // Default: auto_priority (Smart FIFO/LIFO scoring: combines fresh speed-to-lead with neglect prevention and deal value)
+      const scoreA = computeQuotationPriority(a, null).score;
+      const scoreB = computeQuotationPriority(b, null).score;
+      if (scoreA !== scoreB) return scoreB - scoreA;
+      return (b.quotation_date || '').localeCompare(a.quotation_date || '');
+    });
+
     return list;
-  }, [quotationsWithNoNextAction, kpiFilter, searchQuery, tempFilter, ownerFilter, amountFilter]);
+  }, [quotationsWithNoNextAction, kpiFilter, searchQuery, tempFilter, ownerFilter, amountFilter, sortBy]);
 
   // Active filters count
   const activeFiltersCount =
@@ -287,7 +344,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
     (tempFilter !== 'all' ? 1 : 0) +
     (ownerFilter !== 'all' ? 1 : 0) +
     (amountFilter !== 'all' ? 1 : 0) +
-    (sortBy !== 'urgency' ? 1 : 0) +
+    (sortBy !== 'auto_priority' ? 1 : 0) +
     (showFutureScheduled ? 1 : 0) +
     (searchQuery.trim() ? 1 : 0);
 
@@ -296,7 +353,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
     setTempFilter('all');
     setOwnerFilter('all');
     setAmountFilter('all');
-    setSortBy('urgency');
+    setSortBy('auto_priority');
     setShowFutureScheduled(false);
     setSearchQuery('');
   };
@@ -383,6 +440,25 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
     followup?: FollowUp;
     type: 'Call' | 'WhatsApp';
   } | null>(null);
+
+  // Close modals on Escape key
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (actionModalQuote) {
+          setActionModalQuote(null);
+        } else if (bulkRescheduleOpen) {
+          setBulkRescheduleOpen(false);
+        } else if (pendingActionPrompt) {
+          setPendingActionPrompt(null);
+        } else if (mobileFilterOpen) {
+          setMobileFilterOpen(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [actionModalQuote, bulkRescheduleOpen, pendingActionPrompt, mobileFilterOpen]);
 
   const handleTouchpointInitiated = (
     quote: Quotation,
@@ -878,9 +954,10 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
               onChange={(e) => setSortBy(e.target.value as SortOption)}
               className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-slate-700 text-xs focus:outline-none focus:border-teal-500 font-medium"
             >
-              <option value="urgency">Sort: Priority Urgency</option>
-              <option value="deadline_asc">Deadline: Earliest First</option>
-              <option value="deadline_desc">Deadline: Latest First</option>
+              <option value="auto_priority">⚡ Auto Priority (FIFO/LIFO)</option>
+              <option value="lifo">⚡ LIFO (Newest In First)</option>
+              <option value="fifo">⏳ FIFO (Oldest In First)</option>
+              <option value="urgency">Urgency (Due/Overdue)</option>
               <option value="amount_desc">Amount: High to Low</option>
               <option value="amount_asc">Amount: Low to High</option>
               <option value="temperature">Lead: Hot First</option>
@@ -1109,6 +1186,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
                     }
                     onOpenRescheduleModal={onOpenRescheduleModal}
                     onQuickUpdateTemp={handleQuickUpdateTemp}
+                    activeUser={activeUser}
                   />
                 );
               })}
@@ -1133,22 +1211,17 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
                   Quotes requiring next scheduled follow-up
                 </span>
                 <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => handleBatchScheduleNoNextAction(3)}
-                    disabled={isBatchScheduling}
-                    className="inline-flex items-center gap-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1 text-[11px] font-bold shadow-2xs transition active:scale-95 disabled:opacity-50"
-                    title="Schedule follow-up for all shown quotes in +3 days"
-                  >
-                    <Zap className="w-3 h-3" />
-                    <span>{isBatchScheduling ? 'Scheduling...' : 'Schedule All (+3 Days)'}</span>
-                  </button>
+                  <span className="text-[10px] text-amber-800/80 bg-amber-100/70 border border-amber-300/70 px-2 py-0.5 rounded-md font-medium hidden sm:inline">
+                    Prioritized: Auto (FIFO/LIFO)
+                  </span>
                   <button
                     onClick={() => handleBatchScheduleNoNextAction(1)}
                     disabled={isBatchScheduling}
-                    className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 px-2 py-1 text-[11px] font-semibold transition active:scale-95 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 px-2.5 py-1 text-[11px] font-semibold transition active:scale-95 disabled:opacity-50 shadow-2xs"
                     title="Schedule follow-up for all shown quotes for Tomorrow"
                   >
-                    <span>Tomorrow</span>
+                    <Calendar className="w-3 h-3 text-amber-700" />
+                    <span>{isBatchScheduling ? 'Scheduling...' : 'Schedule Tomorrow'}</span>
                   </button>
                 </div>
               </div>
@@ -1168,6 +1241,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
                     setActionModalQuote({ quote, initialType })
                   }
                   onQuickUpdateTemp={handleQuickUpdateTemp}
+                  activeUser={activeUser}
                 />
               ))}
             </div>
@@ -1341,6 +1415,9 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
                 </label>
                 <div className="grid grid-cols-3 gap-1.5">
                   {[
+                    { id: 'auto_priority', label: '⚡ Auto Priority' },
+                    { id: 'lifo', label: '⚡ LIFO (Newest)' },
+                    { id: 'fifo', label: '⏳ FIFO (Oldest)' },
                     { id: 'urgency', label: 'Urgency' },
                     { id: 'amount_desc', label: 'Value: High' },
                     { id: 'temperature', label: 'Hot First' },

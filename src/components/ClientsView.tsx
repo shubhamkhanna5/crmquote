@@ -10,15 +10,17 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { Client, Quotation, isTrialRecord } from '../types';
+import { Client, Quotation, isTrialRecord, ActiveUser } from '../types';
 import { formatIndianCurrency } from '../../server/normalizer';
 import { parsePoolDimensions } from '../utils/poolUtils';
 import { getClientLocation } from '../utils/locationUtils';
 import { formatDDMMYYYY } from '../utils/dateUtils';
+import { generateWhatsAppUrl } from '../utils/quotationActions';
 
 interface ClientsViewProps {
   clients: Client[];
   quotations: Quotation[];
+  activeUser?: ActiveUser;
   onOpenQuotation: (id: string) => void;
   onOpenNewQuotation?: (clientId?: string) => void;
   onRefresh: () => void;
@@ -28,6 +30,7 @@ interface ClientsViewProps {
 export const ClientsView: React.FC<ClientsViewProps> = ({
   clients,
   quotations,
+  activeUser,
   onOpenQuotation,
   onOpenNewQuotation,
   onRefresh,
@@ -232,7 +235,14 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   <span>Call</span>
                 </a>
                 <a
-                  href={`https://wa.me/${client.phone.replace(/\D/g, '')}`}
+                  href={generateWhatsAppUrl(
+                    client.phone,
+                    client.name,
+                    quotes[0]?.pool_type,
+                    quotes[0]?.quotation_price,
+                    quotes[0]?.sender_name,
+                    activeUser
+                  )}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 py-2.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 active:scale-95 touch-manipulation shadow-2xs transition"

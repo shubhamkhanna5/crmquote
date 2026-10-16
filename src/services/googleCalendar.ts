@@ -233,14 +233,24 @@ export const syncFollowUpToGoogleCalendar = async (
     });
 
     if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(
-        errData?.error?.message ||
-          `Google Calendar API responded with status ${res.status}`
-      );
+      let errMsg = `Google Calendar API responded with status ${res.status}`;
+      try {
+        const errData = await res.json();
+        if (errData?.error?.message) {
+          errMsg = errData.error.message;
+        }
+      } catch {
+        // Response was not JSON
+      }
+      throw new Error(errMsg);
     }
 
-    const data = await res.json();
+    let data: any = {};
+    try {
+      data = await res.json();
+    } catch {
+      data = {};
+    }
 
     // Record to local database
     await api.recordCalendarSync({

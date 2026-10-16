@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   X,
   Plus,
@@ -25,6 +25,7 @@ import {
 } from '../types';
 import { formatIndianCurrency } from '../../server/normalizer';
 import { parsePoolDimensions } from '../utils/poolUtils';
+import { formatDDMMYYYY } from '../utils/dateUtils';
 import {
   isGoogleCalendarConnected,
   syncFollowUpToGoogleCalendar,
@@ -81,6 +82,7 @@ export const NewQuotationModal: React.FC<NewQuotationModalProps> = ({
   const [contactNumber, setContactNumber] = useState('');
   const [quotationPrice, setQuotationPrice] = useState<string>('');
   const [quotationDate, setQuotationDate] = useState(todayStr);
+  const [quotationDateDisplay, setQuotationDateDisplay] = useState(() => formatDDMMYYYY(todayStr));
   const [senderName, setSenderName] = useState(
     activeUser && activeUser !== 'All' ? activeUser : 'Direct Sales'
   );
@@ -108,6 +110,11 @@ export const NewQuotationModal: React.FC<NewQuotationModalProps> = ({
     d.setDate(d.getDate() + 3);
     return d.toISOString().split('T')[0];
   });
+  const [followUpDateDisplay, setFollowUpDateDisplay] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    return formatDDMMYYYY(d.toISOString().split('T')[0]);
+  });
   const [followUpTime, setFollowUpTime] = useState('10:30');
   const [followUpType, setFollowUpType] = useState<FollowUpType>('Call');
   const [followUpNotes, setFollowUpNotes] = useState('');
@@ -115,6 +122,40 @@ export const NewQuotationModal: React.FC<NewQuotationModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [clientSearch, setClientSearch] = useState('');
   const [showClientDropdown, setShowClientDropdown] = useState(false);
+
+  // Helper to reliably parse typed DD-MM-YYYY into YYYY-MM-DD without swapping day and month
+  const parseDDMMYYYYToISO = (val: string): string | null => {
+    if (!val || !val.trim()) return null;
+    const trimmed = val.trim();
+    const dmyMatch = trimmed.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+    if (dmyMatch) {
+      const day = dmyMatch[1].padStart(2, '0');
+      const month = dmyMatch[2].padStart(2, '0');
+      const year = dmyMatch[3];
+      const dNum = parseInt(day, 10);
+      const mNum = parseInt(month, 10);
+      if (dNum >= 1 && dNum <= 31 && mNum >= 1 && mNum <= 12) {
+        return `${year}-${month}-${day}`;
+      }
+    }
+    const ymdMatch = trimmed.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+    if (ymdMatch) {
+      return `${ymdMatch[1]}-${ymdMatch[2].padStart(2, '0')}-${ymdMatch[3].padStart(2, '0')}`;
+    }
+    return null;
+  };
+
+  // Close on Escape key (Request #14)
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   // Initialize from initialClientId if passed
   React.useEffect(() => {
@@ -387,14 +428,48 @@ export const NewQuotationModal: React.FC<NewQuotationModalProps> = ({
 
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Quotation Date
+                  Quotation Date (DD-MM-YYYY)
                 </label>
-                <input
-                  type="date"
-                  value={quotationDate}
-                  onChange={(e) => setQuotationDate(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-cyan-500 focus:outline-hidden font-mono"
-                />
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    placeholder="DD-MM-YYYY"
+                    value={quotationDateDisplay}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setQuotationDateDisplay(val);
+                      const parsed = parseDDMMYYYYToISO(val);
+                      if (parsed) {
+                        setQuotationDate(parsed);
+                      }
+                    }}
+                    onBlur={() => {
+                      const parsed = parseDDMMYYYYToISO(quotationDateDisplay);
+                      if (parsed) {
+                        setQuotationDate(parsed);
+                        setQuotationDateDisplay(formatDDMMYYYY(parsed));
+                      } else {
+                        setQuotationDateDisplay(formatDDMMYYYY(quotationDate));
+                      }
+                    }}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-900 pl-3 pr-10 py-2 text-sm text-white focus:border-cyan-500 focus:outline-hidden font-mono"
+                  />
+                  <div className="absolute right-2 flex items-center">
+                    <input
+                      type="date"
+                      value={quotationDate}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setQuotationDate(e.target.value);
+                          setQuotationDateDisplay(formatDDMMYYYY(e.target.value));
+                        }
+                      }}
+                      className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10"
+                      title="Pick date from calendar"
+                    />
+                    <Calendar className="h-4 w-4 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -711,15 +786,48 @@ export const NewQuotationModal: React.FC<NewQuotationModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Follow-up Date
+                    Follow-up Date (DD-MM-YYYY)
                   </label>
-                  <input
-                    type="date"
-                    required={scheduleFollowUp}
-                    value={followUpDate}
-                    onChange={(e) => setFollowUpDate(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-hidden font-mono"
-                  />
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      placeholder="DD-MM-YYYY"
+                      value={followUpDateDisplay}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFollowUpDateDisplay(val);
+                        const parsed = parseDDMMYYYYToISO(val);
+                        if (parsed) {
+                          setFollowUpDate(parsed);
+                        }
+                      }}
+                      onBlur={() => {
+                        const parsed = parseDDMMYYYYToISO(followUpDateDisplay);
+                        if (parsed) {
+                          setFollowUpDate(parsed);
+                          setFollowUpDateDisplay(formatDDMMYYYY(parsed));
+                        } else {
+                          setFollowUpDateDisplay(formatDDMMYYYY(followUpDate));
+                        }
+                      }}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-900 pl-3 pr-8 py-2 text-xs text-white focus:border-cyan-500 focus:outline-hidden font-mono"
+                    />
+                    <div className="absolute right-2 flex items-center">
+                      <input
+                        type="date"
+                        value={followUpDate}
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            setFollowUpDate(e.target.value);
+                            setFollowUpDateDisplay(formatDDMMYYYY(e.target.value));
+                          }
+                        }}
+                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10"
+                        title="Pick date from calendar"
+                      />
+                      <Calendar className="h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
                 </div>
 
                 <div>

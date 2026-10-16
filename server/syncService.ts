@@ -7,8 +7,10 @@ import {
   normalizeText,
   calculateQuotationAgeDays,
   isTrialRecord,
+  normalizeClientBaseName,
+  phonesMatchOrPrefix,
 } from './normalizer';
-import { SyncRun, Quotation, Temperature } from './types';
+import { SyncRun, Quotation, Temperature, AppStatus } from './types';
 import { inferLocationFromText, inferLocationFromPhone } from '../src/utils/locationUtils';
 
 export const REQUIRED_COLUMNS = [
@@ -142,10 +144,31 @@ export class SyncService {
         error: string;
         raw?: any;
       }> = [];
+      const skippedRows: Array<{
+        row_number?: number;
+        source_id?: string;
+        client_name?: string;
+        contact_number?: string;
+        reason: string;
+        raw?: any;
+      }> = [];
 
       const now = new Date().toISOString();
       const todayStr = now.split('T')[0];
       const seenSourceIds = new Set<string>();
+
+      // Tracking kept quotations in this sync run for deduplication
+      const keptQuotes: Array<{
+        sourceId: string;
+        quoteId?: string;
+        clientName: string;
+        phoneRaw: string;
+        phoneDisplay: string;
+        quotationDate: string;
+        quotationPrice: number;
+        poolDimensions: string;
+        rowIdx: number;
+      }> = [];
 
       // Configured follow-up intervals
       const followupDaysConfig = (settings.followup_days || '3,7,14,21,30')
@@ -158,15 +181,26 @@ export class SyncService {
         const row = rows[i];
 
         try {
-          const rawId = row[colMap['id']];
-          const rawClientName = row[colMap['Client Name']];
-          const rawTimestamp = row[colMap['Timestamp']];
-          const rawPrice = row[colMap['Quotation Price']];
-          const rawSender = row[colMap['Sender Name']];
-          const rawDimensions = row[colMap['Pool Dimensions']];
-          const rawPoolType = row[colMap['Pool Type']];
-          const rawContact = row[colMap['Contact Number']];
-          const rawStatus = row[colMap['Status']];
+          let rawId = row[colMap['id']];
+          let rawClientName = row[colMap['Client Name']];
+          let rawTimestamp = row[colMap['Timestamp']];
+          let rawPrice = row[colMap['Quotation Price']];
+          let rawSender = row[colMap['Sender Name']];
+          let rawDimensions = row[colMap['Pool Dimensions']];
+          let rawPoolType = row[colMap['Pool Type']];
+          let rawContact = row[colMap['Contact Number']];
+          let rawStatus = row[colMap['Status']];
+
+          // Resilient column shift recovery (e.g. if comma in client name or shifted cells)
+          if (!rawClientName && rawId && typeof rawId === 'string' && rawId.includes('_')) {
+            const parts = rawId.split('_');
+            rawClientName = parts[0];
+            if (!rawContact && parts[1]) rawContact = parts[1];
+          }
+          if (!rawPrice && rawDimensions && /^\d+$/.test(String(rawDimensions).trim())) {
+            // Price shifted into dimensions column
+            rawPrice = rawDimensions;
+          }
 
           // Additional Google Sheet columns (FollowUpDate, Temperature, Notes, NextAction)
           const rawFollowUpDate = row['FollowUpDate'] || row['followup_date'] || row['Follow Up Date'];
@@ -176,11 +210,22 @@ export class SyncService {
 
           const sourceId = normalizeText(rawId);
           if (!sourceId) {
+            skippedRows.push({
+              row_number: i + 1,
+              reason: 'Empty id column (shifted or empty row)',
+              raw: row,
+            });
             throw new Error(`Row #${i + 1} has an empty 'id'`);
           }
 
           const clientName = normalizeText(rawClientName);
           if (!clientName) {
+            skippedRows.push({
+              row_number: i + 1,
+              source_id: sourceId,
+              reason: 'Empty Client Name column',
+              raw: row,
+            });
             throw new Error(`Row #${i + 1} (id: ${sourceId}) has an empty 'Client Name'`);
           }
 
@@ -193,6 +238,14 @@ export class SyncService {
 
           // User request: Don't show "Valued Client" or anyone with 9650081896 in the contact number as they are just trials
           if (isTrialRecord(clientName, phoneObj.normalized, phoneObj.raw)) {
+            skippedRows.push({
+              row_number: i + 1,
+              source_id: sourceId,
+              client_name: clientName,
+              contact_number: phoneObj.display || phoneObj.raw,
+              reason: 'Trial record ("Valued Client" / test contact number)',
+              raw: row,
+            });
             const existingQuotation = db.findQuotationBySourceId(sourceId, workspaceId);
             if (existingQuotation) {
               db.deleteQuotation(existingQuotation.id, workspaceId);
@@ -204,6 +257,98 @@ export class SyncService {
           const poolType = normalizeText(rawPoolType);
           const senderName = normalizeText(rawSender);
           const sourceStatus = normalizeText(rawStatus) || 'SENT';
+
+          // Map sheet status to app status (WON -> Won, LOST -> Lost)
+          const upperStatus = sourceStatus.toUpperCase();
+          let mappedAppStatus: AppStatus = 'New';
+          if (upperStatus === 'WON') {
+            mappedAppStatus = 'Won';
+          } else if (upperStatus === 'LOST') {
+            mappedAppStatus = 'Lost';
+          } else if (upperStatus === 'CANCELLED' || upperStatus === 'CANCEL') {
+            mappedAppStatus = 'Cancelled';
+          }
+
+          // Deduplication on Client Name + Phone (User Request #6)
+          const baseName = normalizeClientBaseName(clientName);
+          const dupIdx = keptQuotes.findIndex((k) => {
+            if (k.sourceId === sourceId) return false;
+            const kBase = normalizeClientBaseName(k.clientName);
+            if (kBase !== baseName) return false;
+            if (phonesMatchOrPrefix(phoneObj.raw, k.phoneRaw)) return true;
+            // Ayush Dubey case: same name, exact same quotation date and price
+            if (
+              quotationDate &&
+              k.quotationDate === quotationDate &&
+              quotationPrice > 0 &&
+              k.quotationPrice === quotationPrice
+            ) {
+              return true;
+            }
+            return false;
+          });
+
+          if (dupIdx !== -1) {
+            const existingKept = keptQuotes[dupIdx];
+            const p1Len = (phoneObj.raw.replace(/\D/g, '')).length;
+            const p2Len = (existingKept.phoneRaw.replace(/\D/g, '')).length;
+
+            if (p1Len > p2Len) {
+              // Current row has a better / more complete phone (e.g. 10 digits instead of prefix)
+              skippedRows.push({
+                row_number: existingKept.rowIdx + 1,
+                source_id: existingKept.sourceId,
+                client_name: existingKept.clientName,
+                contact_number: existingKept.phoneDisplay || existingKept.phoneRaw,
+                reason: `Duplicate of ${clientName} (${phoneObj.display || phoneObj.raw}) - merged into complete record`,
+                raw: rows[existingKept.rowIdx],
+              });
+              // Purge the previous partial quote from DB if present
+              const prevQuote = db.findQuotationBySourceId(existingKept.sourceId, workspaceId);
+              if (prevQuote) {
+                db.deleteQuotation(prevQuote.id, workspaceId);
+              }
+              // Replace in keptQuotes
+              keptQuotes[dupIdx] = {
+                sourceId,
+                clientName,
+                phoneRaw: phoneObj.raw,
+                phoneDisplay: phoneObj.display || phoneObj.normalized,
+                quotationDate,
+                quotationPrice,
+                poolDimensions,
+                rowIdx: i,
+              };
+            } else {
+              // Existing kept record is better or equal; skip this duplicate row
+              skippedRows.push({
+                row_number: i + 1,
+                source_id: sourceId,
+                client_name: clientName,
+                contact_number: phoneObj.display || phoneObj.raw,
+                reason: `Duplicate of ${existingKept.clientName} (${existingKept.phoneDisplay || existingKept.phoneRaw})`,
+                raw: row,
+              });
+              // Purge duplicate from DB if it previously existed
+              const existingQuotation = db.findQuotationBySourceId(sourceId, workspaceId);
+              if (existingQuotation) {
+                db.deleteQuotation(existingQuotation.id, workspaceId);
+              }
+              unchangedCount++;
+              continue;
+            }
+          } else {
+            keptQuotes.push({
+              sourceId,
+              clientName,
+              phoneRaw: phoneObj.raw,
+              phoneDisplay: phoneObj.display || phoneObj.normalized,
+              quotationDate,
+              quotationPrice,
+              poolDimensions,
+              rowIdx: i,
+            });
+          }
 
           let initialTemperature: Temperature = 'warm';
           if (rawTemperature) {
@@ -237,8 +382,17 @@ export class SyncService {
           const existingQuotation = db.findQuotationBySourceId(sourceId, workspaceId);
 
           if (existingQuotation) {
-            // User requested: "also check if the google sheet has been updated and when updated fix it update it here also"
             // Update Google Sheet specifications without overwriting user-managed CRM follow-up stages or private notes
+            // Honor sheet's WON or LOST or CANCELLED status on update
+            let targetAppStatus = existingQuotation.app_status;
+            if (upperStatus === 'WON') {
+              targetAppStatus = 'Won';
+            } else if (upperStatus === 'LOST') {
+              targetAppStatus = 'Lost';
+            } else if (upperStatus === 'CANCELLED' || upperStatus === 'CANCEL') {
+              targetAppStatus = 'Cancelled';
+            }
+
             const { changed } = db.updateQuotationSheetFields(
               existingQuotation.id,
               {
@@ -250,6 +404,7 @@ export class SyncService {
                 contact_number: phoneObj.display || phoneObj.normalized,
                 contact_number_raw: phoneObj.raw,
                 source_status: sourceStatus,
+                app_status: targetAppStatus,
                 source_last_seen_at: now,
                 source_updated_at: now,
                 source_present: true,
@@ -286,7 +441,7 @@ export class SyncService {
               source_status: sourceStatus,
               temperature: initialTemperature,
               priority: 'normal',
-              app_status: 'New',
+              app_status: mappedAppStatus,
               source_present: true,
               source_last_seen_at: now,
               source_updated_at: now,
@@ -360,6 +515,7 @@ export class SyncService {
           records_failed: failedCount,
           status: finalStatus,
           error_details: errorDetails,
+          skipped_rows: skippedRows,
           error_message:
             failedCount > 0
               ? `${failedCount} row(s) failed during sync.`

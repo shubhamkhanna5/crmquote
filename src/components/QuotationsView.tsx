@@ -39,6 +39,7 @@ import {
 } from '../utils/locationUtils';
 import { UnifiedLeadCard } from './UnifiedLeadCard';
 import { formatDDMMYYYY } from '../utils/dateUtils';
+import { computeQuotationPriority } from '../utils/priorityUtils';
 
 interface QuotationsViewProps {
   quotations: Quotation[];
@@ -77,13 +78,28 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
   const [senderFilter, setSenderFilter] = useState('All');
   const [ageFilter, setAgeFilter] = useState('All');
   const [locationFilter, setLocationFilter] = useState('All');
-  const [sortOption, setSortOption] = useState('newest');
+  const [sortOption, setSortOption] = useState('auto_priority');
   const [showFiltersModal, setShowFiltersModal] = useState(false);
 
   const { showToast } = useToast();
   const [schedulingQuoteId, setSchedulingQuoteId] = useState<string | null>(null);
   const [updatingQuoteId, setUpdatingQuoteId] = useState<string | null>(null);
   const [actionModalQuote, setActionModalQuote] = useState<Quotation | null>(null);
+
+  // Close modals on Escape key
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (actionModalQuote) {
+          setActionModalQuote(null);
+        } else if (showFiltersModal) {
+          setShowFiltersModal(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [actionModalQuote, showFiltersModal]);
 
   const handleQuickSchedule = async (quote: Quotation, daysAhead: number) => {
     try {
@@ -292,8 +308,14 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
 
   // Sorting
   filteredQuotations.sort((a, b) => {
-    if (sortOption === 'newest') return b.quotation_date.localeCompare(a.quotation_date);
-    if (sortOption === 'oldest') return a.quotation_date.localeCompare(b.quotation_date);
+    if (sortOption === 'auto_priority') {
+      const scoreA = computeQuotationPriority(a, a.next_followup).score;
+      const scoreB = computeQuotationPriority(b, b.next_followup).score;
+      if (scoreA !== scoreB) return scoreB - scoreA;
+      return (b.quotation_date || '').localeCompare(a.quotation_date || '');
+    }
+    if (sortOption === 'lifo' || sortOption === 'newest') return (b.quotation_date || '').localeCompare(a.quotation_date || '');
+    if (sortOption === 'fifo' || sortOption === 'oldest') return (a.quotation_date || '').localeCompare(b.quotation_date || '');
     if (sortOption === 'highest_value') return (b.quotation_price || 0) - (a.quotation_price || 0);
     if (sortOption === 'lowest_value') return (a.quotation_price || 0) - (b.quotation_price || 0);
     if (sortOption === 'client_name') return a.client_name.localeCompare(b.client_name);
@@ -461,7 +483,7 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
         </div>
 
         {/* Quick Filter Pill Buttons & Sort */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex flex-wrap items-center gap-2 pb-1 sm:pb-0 w-full sm:w-auto">
           <button
             onClick={() => setShowFiltersModal(true)}
             className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition shrink-0 ${
@@ -475,12 +497,12 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
           </button>
 
           {/* Location Filter Dropdown */}
-          <div className="relative shrink-0">
+          <div className="relative shrink-0 max-w-[170px] sm:max-w-none">
             <MapPin className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cyan-400" />
             <select
               value={locationFilter}
               onChange={(e) => setLocationFilter(e.target.value)}
-              className={`appearance-none rounded-xl border py-2 pl-7 pr-8 text-xs font-medium focus:outline-none cursor-pointer transition ${
+              className={`w-full appearance-none rounded-xl border py-2 pl-7 pr-8 text-xs font-medium focus:outline-none cursor-pointer transition truncate ${
                 locationFilter !== 'All'
                   ? 'border-cyan-500 bg-cyan-950/70 text-cyan-300 font-semibold shadow-xs'
                   : 'border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800'
@@ -504,8 +526,9 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
               onChange={(e) => setSortOption(e.target.value)}
               className="appearance-none rounded-xl border border-slate-800 bg-slate-900 py-2 pl-3 pr-8 text-xs font-medium text-slate-300 hover:bg-slate-800 focus:outline-none cursor-pointer"
             >
-              <option value="newest">Newest Quote</option>
-              <option value="oldest">Oldest Quote</option>
+              <option value="auto_priority">⚡ Auto Priority (FIFO/LIFO)</option>
+              <option value="lifo">⚡ LIFO (Newest First)</option>
+              <option value="fifo">⏳ FIFO (Oldest First)</option>
               <option value="highest_value">Highest Value</option>
               <option value="lowest_value">Lowest Value</option>
               <option value="next_followup">Next Follow-Up</option>
@@ -756,19 +779,19 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
       ) : (
         <>
           {/* Desktop Table Layout (hidden on mobile, visible on md+) - PRD Section 70 & 99 */}
-          <div className="hidden md:block overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="hidden md:block w-full overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900 shadow-sm" style={{ overflowX: 'auto' }}>
+            <table className="min-w-[1160px] w-full text-left text-xs border-collapse">
               <thead className="border-b border-slate-800 bg-slate-950/70 text-slate-400 font-semibold uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-4">Client</th>
-                  <th className="py-3 px-4">Price</th>
-                  <th className="py-3 px-4">Pool Specs & Size</th>
-                  <th className="py-3 px-4">Sender</th>
-                  <th className="py-3 px-4">Date / Age</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Lead</th>
-                  <th className="py-3 px-4">Next Action</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3 px-4 min-w-[190px]">Client</th>
+                  <th className="py-3 px-4 min-w-[110px]">Price</th>
+                  <th className="py-3 px-4 min-w-[180px]">Pool Specs & Size</th>
+                  <th className="py-3 px-4 min-w-[120px]">Sender</th>
+                  <th className="py-3 px-4 min-w-[110px]">Date / Age</th>
+                  <th className="py-3 px-4 min-w-[130px]">Status</th>
+                  <th className="py-3 px-4 min-w-[100px]">Lead</th>
+                  <th className="py-3 px-4 min-w-[160px]">Next Action</th>
+                  <th className="py-3 px-4 min-w-[120px] text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80 text-slate-200">
@@ -879,11 +902,20 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
                           >
                             {getTemperatureBadge(q.temperature)}
                           </button>
-                          {q.priority === 'high' && (
-                            <span className="text-[10px] font-bold text-rose-400 uppercase">
-                              P1
-                            </span>
-                          )}
+                          {(() => {
+                            const p = computeQuotationPriority(q, q.next_followup);
+                            if (p.level === 'high') {
+                              return (
+                                <span
+                                  className="text-[10px] font-bold text-rose-300 bg-rose-950/70 border border-rose-800/80 px-1.5 py-0.5 rounded uppercase shrink-0"
+                                  title={`Auto Priority Score: ${p.score} (${p.reasons.join(', ')})`}
+                                >
+                                  High
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </td>
 
@@ -972,7 +1004,9 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
                               q.contact_number,
                               q.client_name,
                               q.pool_type,
-                              q.quotation_price
+                              q.quotation_price,
+                              q.sender_name,
+                              activeUser
                             )}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -1032,6 +1066,7 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
                 }
                 onOpenRescheduleModal={onOpenRescheduleModal}
                 onQuickUpdateTemp={handleQuickUpdateTemp}
+                activeUser={activeUser}
               />
             ))}
           </div>

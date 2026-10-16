@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CheckCircle2,
   X,
@@ -82,6 +82,17 @@ export const RecordActionModal: React.FC<RecordActionModalProps> = ({
   const [customDate, setCustomDate] = useState(getQuickScheduleDate(7));
   const [customTime, setCustomTime] = useState('10:30');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Close on Escape key (Request #14)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   if (!quotation) return null;
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lock, UserCheck, ShieldAlert, X } from 'lucide-react';
 import { ActiveUser } from '../types';
 
@@ -20,6 +20,17 @@ export const SwitchUserModal: React.FC<SwitchUserModalProps> = ({
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handlePinChange = (val: string) => {
@@ -28,26 +39,37 @@ export const SwitchUserModal: React.FC<SwitchUserModalProps> = ({
     setPin(cleaned);
     if (error) setError(null);
 
+    const requiredPin = targetUser === 'Shubham' ? '5678' : '1234';
+
     // Auto submit upon entering 4 digits for seamless UX
     if (cleaned.length === 4) {
-      if (cleaned === '1234') {
+      if (cleaned === requiredPin) {
         setError(null);
         setPin('');
         onSuccess(targetUser);
       } else {
-        setError('Incorrect PIN. Enter 1234 to switch.');
+        setError(
+          targetUser === 'Shubham'
+            ? 'Incorrect PIN. Enter 5678 to access Shubham.'
+            : 'Incorrect PIN. Enter 1234 to switch.'
+        );
       }
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin === '1234') {
+    const requiredPin = targetUser === 'Shubham' ? '5678' : '1234';
+    if (pin === requiredPin) {
       setError(null);
       setPin('');
       onSuccess(targetUser);
     } else {
-      setError('Incorrect passcode. Enter 1234 to switch.');
+      setError(
+        targetUser === 'Shubham'
+          ? 'Incorrect passcode. Enter 5678 to access Shubham.'
+          : 'Incorrect passcode. Enter 1234 to switch.'
+      );
       setPin('');
     }
   };
@@ -73,10 +95,13 @@ export const SwitchUserModal: React.FC<SwitchUserModalProps> = ({
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-400 ring-1 ring-cyan-500/20 mb-3">
             <Lock className="w-6 h-6" />
           </div>
-          <h3 className="text-lg font-bold text-white">Switch Profile</h3>
+          <h3 className="text-lg font-bold text-white">
+            {targetUser === 'Shubham' ? 'Unlock Shubham' : 'Switch Profile'}
+          </h3>
           <p className="mt-1 text-xs text-slate-400">
-            Switching from <span className="font-semibold text-slate-200">{currentUser}</span> to{' '}
-            <span className="font-semibold text-cyan-400">{targetUser}</span>
+            {targetUser === 'Shubham'
+              ? 'Enter PIN 5678 to unlock Shubham\'s workspace'
+              : `Switching to ${targetUser}`}
           </p>
         </div>
 

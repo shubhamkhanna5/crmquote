@@ -99,12 +99,58 @@ export default function App() {
     setSelectedQuotationId(quotation.id);
   };
 
-  // User Profile Switcher (Pranjal vs Shubham with 1234 PIN)
+  // User Profile Switcher (Pranjal is open default; Shubham is locked behind PIN 5678)
   const [activeUser, setActiveUser] = useState<ActiveUser>(() => {
     const saved = localStorage.getItem('crm_active_user');
-    return saved === 'Pranjal' ? 'Pranjal' : 'Shubham';
+    const unlocked = sessionStorage.getItem('crm_shubham_unlocked') === 'true';
+    if (saved === 'Shubham' && unlocked) {
+      return 'Shubham';
+    }
+    return 'Pranjal';
   });
   const [targetSwitchUser, setTargetSwitchUser] = useState<'Pranjal' | 'Shubham' | null>(null);
+
+  // Global Escape key listener to close active modals (PRD / Request #14)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (targetSwitchUser) {
+          setTargetSwitchUser(null);
+          return;
+        }
+        if (doneModalFollowup) {
+          setDoneModalFollowup(null);
+          return;
+        }
+        if (rescheduleModalFollowup) {
+          setRescheduleModalFollowup(null);
+          return;
+        }
+        if (newFollowUpModalOpen) {
+          setNewFollowUpModalOpen(false);
+          setNewFollowUpInitialQuotationId(null);
+          return;
+        }
+        if (isNewQuotationModalOpen) {
+          setIsNewQuotationModalOpen(false);
+          return;
+        }
+        if (selectedQuotationId) {
+          setSelectedQuotationId(null);
+          return;
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    targetSwitchUser,
+    doneModalFollowup,
+    rescheduleModalFollowup,
+    newFollowUpModalOpen,
+    isNewQuotationModalOpen,
+    selectedQuotationId,
+  ]);
 
   // Load all app data
   const loadData = useCallback(async (silent = false) => {
@@ -419,6 +465,9 @@ export default function App() {
   const handleSwitchUserSuccess = (newUser: 'Pranjal' | 'Shubham') => {
     setActiveUser(newUser);
     localStorage.setItem('crm_active_user', newUser);
+    if (newUser === 'Shubham') {
+      sessionStorage.setItem('crm_shubham_unlocked', 'true');
+    }
     setTargetSwitchUser(null);
   };
 
@@ -439,14 +488,20 @@ export default function App() {
         dueTodayCount={dueTodayCount}
         noNextActionCount={noNextActionCount}
         activeUser={activeUser}
-        onRequestSwitchUser={(target) => setTargetSwitchUser(target)}
+        onRequestSwitchUser={(target) => {
+          if (target === 'Shubham') {
+            setTargetSwitchUser('Shubham');
+          } else {
+            handleSwitchUserSuccess('Pranjal');
+          }
+        }}
       />
 
       {/* Main View Area */}
       <main className="flex-1 overflow-y-auto bg-slate-50 px-3 py-3 sm:px-8 sm:py-6 md:pb-8">
         <div className="mx-auto max-w-7xl">
           {/* Mobile Sticky Top Header (md:hidden) */}
-          <div className="md:hidden sticky top-0 z-30 -mx-3 -mt-3 mb-3 bg-white/95 px-3 py-2.5 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
+          <div className="md:hidden sticky top-0 z-40 -mx-3 -mt-3 mb-3 bg-white px-3 py-2.5 border-b border-slate-200 shadow-xs">
             <div className="flex items-center justify-between gap-2">
               {/* Brand & User switcher */}
               <div className="flex items-center gap-2">
@@ -457,15 +512,18 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => {
-                      const next = activeUser === 'Pranjal' ? 'Shubham' : 'Pranjal';
-                      setTargetSwitchUser(next);
+                      if (activeUser === 'Pranjal') {
+                        setTargetSwitchUser('Shubham');
+                      } else {
+                        handleSwitchUserSuccess('Pranjal');
+                      }
                     }}
                     className="flex items-center gap-1 rounded-lg bg-teal-50 border border-teal-200 px-2.5 py-1 text-xs font-bold text-teal-800 active:scale-95 transition"
                     title={`Switch user (current: ${activeUser})`}
                   >
                     <span className="h-1.5 w-1.5 rounded-full bg-teal-600" />
                     <span>{activeUser}</span>
-                    <Lock className="w-2.5 h-2.5 text-teal-500 ml-0.5" />
+                    {activeUser === 'Pranjal' && <Lock className="w-2.5 h-2.5 text-amber-500 ml-0.5" />}
                   </button>
                 </div>
               </div>
@@ -514,7 +572,7 @@ export default function App() {
                   type="button"
                   onClick={() => {
                     if (activeUser !== 'Pranjal') {
-                      setTargetSwitchUser('Pranjal');
+                      handleSwitchUserSuccess('Pranjal');
                     }
                   }}
                   className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition ${
@@ -522,6 +580,7 @@ export default function App() {
                       ? 'bg-cyan-600 text-white shadow-xs font-semibold'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
+                  title="Switch to Pranjal"
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${activeUser === 'Pranjal' ? 'bg-white' : 'bg-slate-300'}`} />
                   <span>Pranjal</span>
@@ -538,9 +597,11 @@ export default function App() {
                       ? 'bg-cyan-600 text-white shadow-xs font-semibold'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
+                  title="Shubham (Protected by PIN 5678)"
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${activeUser === 'Shubham' ? 'bg-white' : 'bg-slate-300'}`} />
                   <span>Shubham</span>
+                  {activeUser !== 'Shubham' && <Lock className="w-2.5 h-2.5 text-amber-500" />}
                 </button>
               </div>
             </div>
@@ -583,6 +644,7 @@ export default function App() {
                   metrics={userMetrics}
                   followups={userFollowups}
                   quotations={userQuotations}
+                  activeUser={activeUser}
                   onOpenQuotation={(id) => setSelectedQuotationId(id)}
                   onOpenDoneModal={(f) => setDoneModalFollowup(f)}
                   onOpenRescheduleModal={(f) => setRescheduleModalFollowup(f)}
@@ -613,6 +675,7 @@ export default function App() {
                 <ClientsView
                   clients={userClients}
                   quotations={userQuotations}
+                  activeUser={activeUser}
                   onOpenQuotation={(id) => setSelectedQuotationId(id)}
                   onOpenNewQuotation={(cid) => handleOpenNewQuotation(cid)}
                   onRefresh={() => loadData(false)}
@@ -655,6 +718,7 @@ export default function App() {
       {selectedQuotationId && (
         <QuotationDetailModal
           quotationId={selectedQuotationId}
+          activeUser={activeUser}
           onClose={() => setSelectedQuotationId(null)}
           onOpenDoneModal={(f) => setDoneModalFollowup(f)}
           onOpenRescheduleModal={(f) => setRescheduleModalFollowup(f)}
@@ -668,6 +732,7 @@ export default function App() {
         <FollowUpDoneModal
           followup={doneModalFollowup}
           quotation={quotations.find((q) => q.id === doneModalFollowup.quotation_id)}
+          activeUser={activeUser}
           onClose={() => setDoneModalFollowup(null)}
           onSave={handleCompleteFollowUp}
         />

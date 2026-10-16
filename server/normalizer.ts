@@ -174,3 +174,53 @@ export function calculateQuotationAgeDays(quotationDateStr: string): number {
     return 0;
   }
 }
+
+/**
+ * Normalizes a client name for deduplication:
+ * strips parentheticals (e.g. "(30x20ft)"), company/property suffixes after comma,
+ * common descriptors like "guest house", and extra whitespace.
+ */
+export function normalizeClientBaseName(name?: string | null): string {
+  if (!name) return '';
+  let clean = String(name).toLowerCase().trim();
+  // Strip parentheticals like "(30x20ft)", "(pool)", etc.
+  clean = clean.replace(/\(.*?\)/g, '').trim();
+  // Strip company/property suffixes after comma, e.g. ", Deep Real Estate", ", Aquadrop", ", Rajmahal Hotel"
+  if (clean.includes(',')) {
+    clean = clean.split(',')[0].trim();
+  }
+  // Strip common business/hospitality suffixes
+  clean = clean.replace(/-\s*pet boarding/gi, '').trim();
+  clean = clean.replace(/\bguest house\b/gi, '').trim();
+  clean = clean.replace(/\bhotel\b/gi, '').trim();
+  clean = clean.replace(/[^a-z0-9\s]/gi, '').replace(/\s+/g, ' ').trim();
+  return clean;
+}
+
+/**
+ * Checks whether two phone strings match or share a non-trivial prefix (minimum 3 digits),
+ * handling truncated/incomplete phone rows in the sheet (e.g., 959 vs 9592958600).
+ */
+export function phonesMatchOrPrefix(p1?: string | null, p2?: string | null): boolean {
+  const d1 = String(p1 || '').replace(/\D/g, '');
+  const d2 = String(p2 || '').replace(/\D/g, '');
+  if (!d1 || !d2) return false;
+  if (d1 === d2) return true;
+
+  // Normalize leading 91 or 0
+  const stripLeading = (d: string) => {
+    if (d.length > 10 && d.startsWith('91')) return d.slice(2);
+    if (d.length > 10 && d.startsWith('0')) return d.slice(1);
+    // Also if 10-digit number starts with 91 followed by 8 digits (accidental country code truncation in 10-digit cell)
+    if (d.length === 10 && d.startsWith('91')) return d.slice(2);
+    return d;
+  };
+
+  const norm1 = stripLeading(d1);
+  const norm2 = stripLeading(d2);
+
+  if (norm1 === norm2) return true;
+  if (norm1.length >= 3 && norm2.startsWith(norm1)) return true;
+  if (norm2.length >= 3 && norm1.startsWith(norm2)) return true;
+  return false;
+}

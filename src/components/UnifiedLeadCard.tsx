@@ -11,6 +11,7 @@ import {
   Sparkles,
   AlertCircle,
   AlertTriangle,
+  Zap,
 } from 'lucide-react';
 import { FollowUp, Quotation, Temperature, AppStatus } from '../types';
 import { formatIndianCurrency } from '../../server/normalizer';
@@ -19,6 +20,7 @@ import { getQuotationLocation } from '../utils/locationUtils';
 import { generateWhatsAppUrl } from '../utils/quotationActions';
 import { getDisplayNote } from '../utils/notesUtils';
 import { formatDDMMYYYY } from '../utils/dateUtils';
+import { computeQuotationPriority } from '../utils/priorityUtils';
 
 export interface UnifiedLeadCardProps {
   quotation: Quotation;
@@ -31,6 +33,7 @@ export interface UnifiedLeadCardProps {
   onOpenRecordAction: (quotation: Quotation, initialType: 'Call' | 'WhatsApp') => void;
   onOpenRescheduleModal?: (followup: FollowUp) => void;
   onQuickUpdateTemp?: (quotation: Quotation, nextTemp: Temperature) => void;
+  activeUser?: string;
 }
 
 /**
@@ -58,6 +61,7 @@ export const UnifiedLeadCard: React.FC<UnifiedLeadCardProps> = ({
   onOpenRecordAction,
   onOpenRescheduleModal,
   onQuickUpdateTemp,
+  activeUser,
 }) => {
   const isOverdue = followup?.status === 'Overdue';
   const isDueToday = followup?.status === 'Due';
@@ -165,7 +169,9 @@ export const UnifiedLeadCard: React.FC<UnifiedLeadCardProps> = ({
         quotation.contact_number,
         quotation.client_name,
         quotation.pool_type,
-        quotation.quotation_price
+        quotation.quotation_price,
+        quotation.sender_name,
+        activeUser
       );
       window.open(waUrl, '_blank');
     }
@@ -200,6 +206,9 @@ export const UnifiedLeadCard: React.FC<UnifiedLeadCardProps> = ({
     : isNoNextAction
     ? 'border-l-[3.5px] border-l-[#FF9500] border-slate-200/90'
     : 'border-l-[3.5px] border-l-slate-300 border-slate-200/90';
+
+  // Auto calculate smart priority (FIFO vs LIFO + Urgency + Deal Value)
+  const priorityDetails = computeQuotationPriority(quotation, followup);
 
   return (
     <div
@@ -240,6 +249,15 @@ export const UnifiedLeadCard: React.FC<UnifiedLeadCardProps> = ({
         <div className="flex items-center justify-between gap-1 flex-wrap">
           <div className="flex items-center gap-1.5 flex-wrap">
             {renderDueState()}
+            {priorityDetails.level === 'high' && (
+              <span
+                className="inline-flex items-center gap-0.5 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200/90 px-1.5 py-0.5 rounded shadow-2xs"
+                title={`Auto Priority Score: ${priorityDetails.score} (${priorityDetails.reasons.join(', ')})`}
+              >
+                <Zap className="w-2.5 h-2.5 text-rose-600 fill-rose-600" />
+                <span>{priorityDetails.badgeText}</span>
+              </span>
+            )}
             {quotation.app_status && (
               <span className="text-[10px] sm:text-[11px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
                 {quotation.app_status}

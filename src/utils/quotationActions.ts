@@ -29,12 +29,15 @@ export function getQuickScheduleDate(daysAhead: number): string {
 
 /**
  * Formats a clean, professional WhatsApp follow-up URL with template text
+ * dynamically using the active salesperson's name (Pranjal vs Shubham).
  */
 export function generateWhatsAppUrl(
   contactNumber: string,
   clientName: string,
   poolType?: string,
-  price?: number
+  price?: number,
+  senderName?: string,
+  activeWorkerName?: string
 ): string {
   const digits = contactNumber.replace(/\D/g, '');
   const phone = digits.length === 10 ? `91${digits}` : digits;
@@ -42,7 +45,41 @@ export function generateWhatsAppUrl(
   const quoteInfo = price && price > 0 ? ` of ${formatIndianCurrency(price)}` : '';
   const specInfo = poolType ? ` for your ${poolType}` : ' for your swimming pool';
 
-  const text = `Hi ${clientName}, this is Shubham regarding your quotation${quoteInfo}${specInfo}. Following up to see if you have any questions or if you'd like to discuss the next steps!`;
+  // Determine salesperson name dynamically:
+  // The salesperson actively working the CRM takes precedence.
+  // When Pranjal is active, WhatsApp messages MUST say Pranjal, not Shubham.
+  let repName = '';
+  if (activeWorkerName && activeWorkerName.trim() && activeWorkerName !== 'All') {
+    repName = activeWorkerName.trim();
+  }
+
+  if (!repName) {
+    try {
+      const savedUser = localStorage.getItem('crm_active_user');
+      const isShubhamUnlocked = sessionStorage.getItem('crm_shubham_unlocked') === 'true';
+      if (savedUser && savedUser.trim() && savedUser !== 'All') {
+        if (savedUser === 'Shubham' && !isShubhamUnlocked) {
+          repName = 'Pranjal';
+        } else {
+          repName = savedUser.trim();
+        }
+      }
+    } catch {}
+  }
+
+  // Default to Pranjal as primary active salesperson
+  if (!repName) {
+    repName = 'Pranjal';
+  }
+
+  // Normalize name
+  if (repName.toLowerCase().includes('pranjal')) {
+    repName = 'Pranjal';
+  } else if (repName.toLowerCase().includes('shubham')) {
+    repName = 'Shubham';
+  }
+
+  const text = `Hi ${clientName}, this is ${repName} regarding your quotation${quoteInfo}${specInfo}. Following up to see if you have any questions or if you'd like to discuss the next steps!`;
 
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
 }

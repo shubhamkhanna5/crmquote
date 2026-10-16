@@ -17,7 +17,14 @@ import {
   CalendarEvent,
   CalendarProvider,
 } from './types';
-import { calculateQuotationAgeDays, isTrialRecord, normalizePhone, normalizePrice } from './normalizer';
+import {
+  calculateQuotationAgeDays,
+  isTrialRecord,
+  normalizePhone,
+  normalizePrice,
+  normalizeClientBaseName,
+  phonesMatchOrPrefix,
+} from './normalizer';
 
 // In serverless environments (like Vercel or AWS Lambda), current working directory is read-only.
 // We fallback to /tmp if process.env.VERCEL or process.env.AWS_LAMBDA_FUNCTION_NAME is defined.
@@ -75,6 +82,59 @@ class Database {
           store.activities = (store.activities || []).filter((a) => !a.quotation_id || !trialQuoteIds.has(a.quotation_id));
           store.clients = (store.clients || []).filter((c) => !trialClientIds.has(c.id));
           storeNeedsSave = true;
+        }
+
+        // Map sheet's WON and LOST status to CRM app_status
+        for (const q of store.quotations || []) {
+          const s = (q.source_status || '').toUpperCase();
+          if (s === 'WON' && q.app_status !== 'Won') {
+            q.app_status = 'Won';
+            storeNeedsSave = true;
+          } else if (s === 'LOST' && q.app_status !== 'Lost') {
+            q.app_status = 'Lost';
+            storeNeedsSave = true;
+          } else if ((s === 'CANCELLED' || s === 'CANCEL') && q.app_status !== 'Cancelled') {
+            q.app_status = 'Cancelled';
+            storeNeedsSave = true;
+          }
+        }
+
+        // Deduplicate existing quotations on Client Name + Phone
+        if (store.quotations && store.quotations.length > 0) {
+          const kept: Quotation[] = [];
+          const droppedIds = new Set<string>();
+
+          for (const q of store.quotations) {
+            const base = normalizeClientBaseName(q.client_name);
+            const dupIdx = kept.findIndex((k) => {
+              if (k.id === q.id) return false;
+              if (normalizeClientBaseName(k.client_name) !== base) return false;
+              if (phonesMatchOrPrefix(q.contact_number_raw || q.contact_number, k.contact_number_raw || k.contact_number)) return true;
+              if (q.quotation_date && k.quotation_date === q.quotation_date && q.quotation_price > 0 && k.quotation_price === q.quotation_price) return true;
+              return false;
+            });
+
+            if (dupIdx !== -1) {
+              const existing = kept[dupIdx];
+              const p1Len = (q.contact_number_raw || q.contact_number || '').replace(/\D/g, '').length;
+              const p2Len = (existing.contact_number_raw || existing.contact_number || '').replace(/\D/g, '').length;
+              if (p1Len > p2Len) {
+                droppedIds.add(existing.id);
+                kept[dupIdx] = q;
+              } else {
+                droppedIds.add(q.id);
+              }
+            } else {
+              kept.push(q);
+            }
+          }
+
+          if (droppedIds.size > 0) {
+            store.quotations = kept;
+            store.followups = (store.followups || []).filter((f) => !droppedIds.has(f.quotation_id));
+            store.activities = (store.activities || []).filter((a) => !a.quotation_id || !droppedIds.has(a.quotation_id));
+            storeNeedsSave = true;
+          }
         }
 
         // Clean up stale zombie followups: if a lead has a Completed follow-up, remove any stale
@@ -969,6 +1029,7 @@ class Database {
         | 'contact_number'
         | 'contact_number_raw'
         | 'source_status'
+        | 'app_status'
         | 'source_last_seen_at'
         | 'source_updated_at'
         | 'source_present'
@@ -990,6 +1051,21 @@ class Database {
     for (const [key, value] of Object.entries(sheetFields)) {
       if ((quote as any)[key] !== value) {
         (quote as any)[key] = value;
+        changed = true;
+      }
+    }
+
+    // Auto-map WON / LOST source status if not explicitly updated
+    if (sheetFields.source_status) {
+      const s = sheetFields.source_status.toUpperCase();
+      if (s === 'WON' && quote.app_status !== 'Won') {
+        quote.app_status = 'Won';
+        changed = true;
+      } else if (s === 'LOST' && quote.app_status !== 'Lost') {
+        quote.app_status = 'Lost';
+        changed = true;
+      } else if ((s === 'CANCELLED' || s === 'CANCEL') && quote.app_status !== 'Cancelled') {
+        quote.app_status = 'Cancelled';
         changed = true;
       }
     }
@@ -1190,7 +1266,6 @@ class Database {
     const today = new Date().toISOString().split('T')[0];
     return this.store.followups
       .filter((f) => f.workspace_id === workspaceId && f.quotation_id === quotationId)
-      .sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date))
       .map((f) => {
         let status = f.status;
         if (['Scheduled', 'Due', 'Overdue'].includes(status)) {
@@ -1200,6 +1275,13 @@ class Database {
         }
         const calendarEvent = this.getCalendarEventByFollowUpId(f.id, workspaceId);
         return { ...f, status, calendar_event: calendarEvent };
+      })
+      .sort((a, b) => {
+        const aActive = ['Scheduled', 'Due', 'Overdue'].includes(a.status);
+        const bActive = ['Scheduled', 'Due', 'Overdue'].includes(b.status);
+        if (aActive && !bActive) return -1;
+        if (!aActive && bActive) return 1;
+        return (a.scheduled_date + (a.scheduled_time || '')).localeCompare(b.scheduled_date + (b.scheduled_time || ''));
       });
   }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RotateCw, X } from 'lucide-react';
 import { FollowUp } from '../types';
 import { formatDDMMYYYY } from '../utils/dateUtils';
@@ -29,6 +29,17 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
   const [customDate, setCustomDate] = useState(getDateForOption('tomorrow'));
   const [time, setTime] = useState(followup?.scheduled_time || '10:30');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Close on Escape key (Request #14)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   if (!followup) return null;
 

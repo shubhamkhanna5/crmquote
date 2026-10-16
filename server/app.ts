@@ -417,6 +417,20 @@ export function createExpressApp() {
     }
   });
 
+  // Create Manual / Direct Quotation
+  apiRouter.post('/quotations', (req, res) => {
+    try {
+      const { client_name, contact_number, quotation_price } = req.body;
+      if (!client_name || !contact_number || quotation_price === undefined) {
+        return res.status(400).json({ error: 'client_name, contact_number, and quotation_price are required' });
+      }
+      const result = db.createDirectQuotation(req.body, DEFAULT_WORKSPACE_ID);
+      res.status(201).json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
   // Follow-ups List & Filters (PRD Section 60, 61, 62)
   apiRouter.get('/followups', (req, res) => {
     try {
@@ -553,16 +567,20 @@ export function createExpressApp() {
   // Reschedule Follow-up (PRD Section 40)
   apiRouter.post('/followups/:id/reschedule', (req, res) => {
     try {
-      const { scheduled_date, scheduled_time, reason } = req.body;
-      if (!scheduled_date) {
-        return res.status(400).json({ error: 'scheduled_date is required' });
+      const { scheduled_date, scheduled_time, reason, newDate, newTime, notes } = req.body;
+      const targetDate = scheduled_date || newDate;
+      const targetTime = scheduled_time || newTime || '10:30';
+      const targetReason = reason || notes;
+
+      if (!targetDate) {
+        return res.status(400).json({ error: 'scheduled_date or newDate is required' });
       }
 
       const updated = db.rescheduleFollowUp(
         req.params.id,
-        scheduled_date,
-        scheduled_time || '10:30',
-        reason,
+        targetDate,
+        targetTime,
+        targetReason,
         DEFAULT_WORKSPACE_ID
       );
 
@@ -571,6 +589,47 @@ export function createExpressApp() {
       }
 
       res.json(updated);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  // Cancel Follow-up
+  apiRouter.post('/followups/:id/cancel', (req, res) => {
+    try {
+      const canceled = db.cancelFollowUp(req.params.id, DEFAULT_WORKSPACE_ID);
+      if (!canceled) {
+        return res.status(404).json({ error: 'Follow-up not found' });
+      }
+      res.json(canceled);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  // Bulk Assign Follow-ups
+  apiRouter.post('/followups/bulk-assign', (req, res) => {
+    try {
+      const { followupIds, senderName } = req.body;
+      if (!Array.isArray(followupIds) || !senderName) {
+        return res.status(400).json({ error: 'followupIds array and senderName are required' });
+      }
+      const result = db.bulkAssignFollowUps(followupIds, senderName, DEFAULT_WORKSPACE_ID);
+      res.json(result);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  // Bulk Reschedule Follow-ups
+  apiRouter.post('/followups/bulk-reschedule', (req, res) => {
+    try {
+      const { followupIds, scheduledDate, notes } = req.body;
+      if (!Array.isArray(followupIds) || !scheduledDate) {
+        return res.status(400).json({ error: 'followupIds array and scheduledDate are required' });
+      }
+      const result = db.bulkRescheduleFollowUps(followupIds, scheduledDate, notes, DEFAULT_WORKSPACE_ID);
+      res.json(result);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
     }
@@ -793,7 +852,32 @@ export function createExpressApp() {
     }
   });
 
+  apiRouter.post('/supabase/push', async (req, res) => {
+    try {
+      await db.syncAllToSupabase(DEFAULT_WORKSPACE_ID);
+      res.json({
+        success: true,
+        message: 'All local quotation records synced to Supabase successfully.',
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   apiRouter.post('/supabase/hydrate', async (req, res) => {
+    try {
+      const success = await db.hydrateFromSupabase(DEFAULT_WORKSPACE_ID);
+      res.json({
+        success,
+        quotationsCount: db.getQuotations(DEFAULT_WORKSPACE_ID).length,
+        clientsCount: db.getClients(DEFAULT_WORKSPACE_ID).length,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  apiRouter.post('/supabase/pull', async (req, res) => {
     try {
       const success = await db.hydrateFromSupabase(DEFAULT_WORKSPACE_ID);
       res.json({
@@ -809,6 +893,11 @@ export function createExpressApp() {
   // Mount API router on BOTH /api and root / so any Vercel rewrite or direct path matches cleanly
   app.use('/api', apiRouter);
   app.use('/', apiRouter);
+
+  // Catch-all for unhandled /api/* routes so they ALWAYS return JSON 404 and NEVER fall through to HTML
+  app.all('/api/*', (req, res) => {
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl || req.path}` });
+  });
 
   return app;
 }

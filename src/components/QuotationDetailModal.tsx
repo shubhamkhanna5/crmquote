@@ -25,6 +25,7 @@ import {
   Temperature,
   Priority,
   AppStatus,
+  ActiveUser,
 } from '../types';
 import { getActualNote } from '../utils/notesUtils';
 import { api } from '../services/api';
@@ -47,6 +48,7 @@ import { formatDDMMYYYY, formatDateTimeDDMMYYYY } from '../utils/dateUtils';
 
 interface QuotationDetailModalProps {
   quotationId: string | null;
+  activeUser?: ActiveUser;
   onClose: () => void;
   onOpenDoneModal: (followup: FollowUp) => void;
   onOpenRescheduleModal: (followup: FollowUp) => void;
@@ -56,6 +58,7 @@ interface QuotationDetailModalProps {
 
 export const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({
   quotationId,
+  activeUser,
   onClose,
   onOpenDoneModal,
   onOpenRescheduleModal,
@@ -119,6 +122,21 @@ export const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({
   useEffect(() => {
     loadDetails();
   }, [loadDetails]);
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (recordActionModalOpen) {
+          setRecordActionModalOpen(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, recordActionModalOpen]);
 
   if (!quotationId) return null;
 
@@ -275,9 +293,12 @@ export const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({
   };
 
   const q = data?.quotation;
-  const activeFollowup = data?.followups.find((f) =>
-    ['Scheduled', 'Due', 'Overdue'].includes(f.status)
-  );
+  const activeFollowup =
+    data?.followups.find((f) =>
+      ['scheduled', 'due', 'overdue'].includes(String(f.status || '').toLowerCase())
+    ) ||
+    data?.quotation?.next_followup ||
+    null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-3 sm:p-4 backdrop-blur-xs overflow-y-auto">
@@ -453,7 +474,9 @@ export const QuotationDetailModal: React.FC<QuotationDetailModalProps> = ({
                   q.contact_number,
                   q.client_name,
                   q.pool_type,
-                  q.quotation_price
+                  q.quotation_price,
+                  q.sender_name,
+                  activeUser
                 )}
                 target="_blank"
                 rel="noopener noreferrer"

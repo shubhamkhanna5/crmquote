@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CheckCircle2,
   X,
@@ -19,13 +19,14 @@ import {
 import { Quotation, FollowUp, FollowUpOutcome, FollowUpType, Temperature, AppStatus } from '../types';
 import { formatIndianCurrency } from '../../server/normalizer';
 import { isGoogleCalendarConnected } from '../services/googleCalendar';
-import { getQuickScheduleDate } from '../utils/quotationActions';
+import { getQuickScheduleDate, generateWhatsAppUrl } from '../utils/quotationActions';
 import { formatDDMMYYYY } from '../utils/dateUtils';
 import { useToast } from './Toast';
 
 export interface FollowUpDoneModalProps {
   followup: FollowUp | null;
   quotation?: Quotation | null;
+  activeUser?: string;
   onClose: () => void;
   onSave: (data: {
     outcome: FollowUpOutcome;
@@ -220,6 +221,7 @@ const QUICK_NOTE_SNIPPETS = [
 export const FollowUpDoneModal: React.FC<FollowUpDoneModalProps> = ({
   followup,
   quotation,
+  activeUser,
   onClose,
   onSave,
 }) => {
@@ -243,6 +245,17 @@ export const FollowUpDoneModal: React.FC<FollowUpDoneModalProps> = ({
     (quotation?.temperature || followup?.quotation?.temperature || 'warm') as Temperature
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Close on Escape key (Request #14)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   if (!followup) return null;
 
@@ -409,7 +422,14 @@ export const FollowUpDoneModal: React.FC<FollowUpDoneModalProps> = ({
               )}
               {waPhone && (
                 <a
-                  href={`https://wa.me/${waPhone}`}
+                  href={generateWhatsAppUrl(
+                    rawPhone || waPhone,
+                    clientName,
+                    poolType,
+                    price,
+                    quoteData?.sender_name,
+                    activeUser
+                  )}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="min-h-[42px] px-3 flex items-center justify-center gap-1 rounded-xl bg-emerald-600 text-white text-xs font-bold active:scale-95 transition shadow-2xs"

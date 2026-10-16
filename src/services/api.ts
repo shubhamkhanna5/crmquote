@@ -14,13 +14,61 @@ import {
   CalendarEvent,
 } from '../types';
 
+async function requestJson<T = any>(
+  url: string,
+  options?: RequestInit,
+  fallbackError = 'Request failed'
+): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(url, options);
+  } catch (netErr: any) {
+    throw new Error(`Network error connecting to server: ${netErr?.message || 'Check connection'}`);
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+  const isJson = contentType.includes('application/json');
+
+  if (!res.ok) {
+    let errMsg = fallbackError;
+    if (isJson) {
+      try {
+        const body = await res.json();
+        errMsg = body.error || body.message || fallbackError;
+      } catch {
+        // Failed to parse JSON error
+      }
+    } else {
+      const text = await res.text().catch(() => '');
+      if (text && !text.trim().startsWith('<')) {
+        errMsg = text.slice(0, 200);
+      } else {
+        errMsg = `${fallbackError} (${res.status} ${res.statusText || 'Error'})`;
+      }
+    }
+    throw new Error(errMsg);
+  }
+
+  if (!isJson) {
+    const text = await res.text().catch(() => '');
+    if (text.trim().startsWith('<')) {
+      throw new Error(`Server returned HTML instead of expected JSON for ${url}`);
+    }
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return text as unknown as T;
+    }
+  }
+
+  return res.json();
+}
+
 export const api = {
   // Dashboard
   async getDashboard(sender?: string): Promise<DashboardMetrics> {
     const url = sender && sender !== 'All' ? `/api/dashboard?sender=${encodeURIComponent(sender)}` : '/api/dashboard';
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Failed to load dashboard metrics');
-    return res.json();
+    return requestJson<DashboardMetrics>(url, undefined, 'Failed to load dashboard metrics');
   },
 
   // Quotations
@@ -45,9 +93,7 @@ export const api = {
         if (val) searchParams.set(key, val);
       });
     }
-    const res = await fetch(`/api/quotations?${searchParams.toString()}`);
-    if (!res.ok) throw new Error('Failed to load quotations');
-    return res.json();
+    return requestJson(`/api/quotations?${searchParams.toString()}`, undefined, 'Failed to load quotations');
   },
 
   async getQuotationById(id: string): Promise<{
@@ -56,9 +102,7 @@ export const api = {
     followups: FollowUp[];
     activities: Activity[];
   }> {
-    const res = await fetch(`/api/quotations/${id}`);
-    if (!res.ok) throw new Error('Failed to load quotation');
-    const data = await res.json();
+    const data = await requestJson<any>(`/api/quotations/${id}`, undefined, 'Failed to load quotation');
     if (data && data.quotation) {
       return {
         quotation: data.quotation,
@@ -85,13 +129,15 @@ export const api = {
       location?: string | null;
     }
   ): Promise<Quotation> {
-    const res = await fetch(`/api/quotations/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
-    if (!res.ok) throw new Error('Failed to update quotation');
-    return res.json();
+    return requestJson<Quotation>(
+      `/api/quotations/${id}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      },
+      'Failed to update quotation'
+    );
   },
 
   async createQuotation(data: {
@@ -113,16 +159,15 @@ export const api = {
       notes?: string;
     };
   }): Promise<{ quotation: Quotation; followup?: FollowUp | null }> {
-    const res = await fetch('/api/quotations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to create quotation');
-    }
-    return res.json();
+    return requestJson(
+      '/api/quotations',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      },
+      'Failed to create quotation'
+    );
   },
 
   async recordQuotationAction(
@@ -135,23 +180,20 @@ export const api = {
       temperature?: Temperature;
     }
   ): Promise<{ followup: FollowUp; quotation: Quotation }> {
-    const res = await fetch(`/api/quotations/${id}/action`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(actionData),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to record quotation action');
-    }
-    return res.json();
+    return requestJson(
+      `/api/quotations/${id}/action`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(actionData),
+      },
+      'Failed to record quotation action'
+    );
   },
 
   // Follow-ups
   async getFollowUps(): Promise<FollowUp[]> {
-    const res = await fetch('/api/followups');
-    if (!res.ok) throw new Error('Failed to load follow-ups');
-    return res.json();
+    return requestJson<FollowUp[]>('/api/followups', undefined, 'Failed to load follow-ups');
   },
 
   async createFollowUp(data: {
@@ -161,13 +203,15 @@ export const api = {
     type?: FollowUpType;
     notes?: string | null;
   }): Promise<FollowUp> {
-    const res = await fetch('/api/followups', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error('Failed to create follow-up');
-    return res.json();
+    return requestJson<FollowUp>(
+      '/api/followups',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      },
+      'Failed to create follow-up'
+    );
   },
 
   async completeFollowUp(
@@ -185,13 +229,15 @@ export const api = {
       };
     }
   ): Promise<{ completed: FollowUp; nextFollowup: FollowUp | null }> {
-    const res = await fetch(`/api/followups/${id}/done`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error('Failed to complete follow-up');
-    return res.json();
+    return requestJson(
+      `/api/followups/${id}/done`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      },
+      'Failed to complete follow-up'
+    );
   },
 
   async rescheduleFollowUp(
@@ -199,21 +245,25 @@ export const api = {
     newDate: string,
     newTime = '10:30'
   ): Promise<FollowUp> {
-    const res = await fetch(`/api/followups/${id}/reschedule`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ newDate, newTime }),
-    });
-    if (!res.ok) throw new Error('Failed to reschedule follow-up');
-    return res.json();
+    return requestJson<FollowUp>(
+      `/api/followups/${id}/reschedule`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newDate, newTime }),
+      },
+      'Failed to reschedule follow-up'
+    );
   },
 
   async cancelFollowUp(id: string): Promise<FollowUp> {
-    const res = await fetch(`/api/followups/${id}/cancel`, {
-      method: 'POST',
-    });
-    if (!res.ok) throw new Error('Failed to cancel follow-up');
-    return res.json();
+    return requestJson<FollowUp>(
+      `/api/followups/${id}/cancel`,
+      {
+        method: 'POST',
+      },
+      'Failed to cancel follow-up'
+    );
   },
 
   // Bulk Operations
@@ -221,13 +271,15 @@ export const api = {
     followupIds: string[],
     senderName: string
   ): Promise<{ updatedCount: number }> {
-    const res = await fetch('/api/followups/bulk-assign', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ followupIds, senderName }),
-    });
-    if (!res.ok) throw new Error('Failed to bulk assign follow-ups');
-    return res.json();
+    return requestJson(
+      '/api/followups/bulk-assign',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ followupIds, senderName }),
+      },
+      'Failed to bulk assign follow-ups'
+    );
   },
 
   async bulkRescheduleFollowUps(
@@ -235,20 +287,20 @@ export const api = {
     scheduledDate: string,
     notes?: string
   ): Promise<{ updatedCount: number }> {
-    const res = await fetch('/api/followups/bulk-reschedule', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ followupIds, scheduledDate, notes }),
-    });
-    if (!res.ok) throw new Error('Failed to bulk reschedule follow-ups');
-    return res.json();
+    return requestJson(
+      '/api/followups/bulk-reschedule',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ followupIds, scheduledDate, notes }),
+      },
+      'Failed to bulk reschedule follow-ups'
+    );
   },
 
   // Calendar Sync
   async getCalendarEvents(): Promise<CalendarEvent[]> {
-    const res = await fetch('/api/calendar/events');
-    if (!res.ok) throw new Error('Failed to load calendar events');
-    return res.json();
+    return requestJson<CalendarEvent[]>('/api/calendar/events', undefined, 'Failed to load calendar events');
   },
 
   async recordCalendarSync(data: {
@@ -261,61 +313,67 @@ export const api = {
     end_at: string;
     html_link?: string | null;
   }): Promise<CalendarEvent> {
-    const res = await fetch('/api/calendar/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error('Failed to record calendar sync');
-    return res.json();
+    return requestJson<CalendarEvent>(
+      '/api/calendar/sync',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      },
+      'Failed to record calendar sync'
+    );
   },
 
   async deleteCalendarSync(followupId: string): Promise<{ success: boolean }> {
-    const res = await fetch(`/api/calendar/events/${followupId}`, {
-      method: 'DELETE',
-    });
-    if (!res.ok) throw new Error('Failed to delete calendar event');
-    return res.json();
+    return requestJson<{ success: boolean }>(
+      `/api/calendar/events/${followupId}`,
+      {
+        method: 'DELETE',
+      },
+      'Failed to delete calendar event'
+    );
   },
 
   // Clients
   async getClients(): Promise<Client[]> {
-    const res = await fetch('/api/clients');
-    if (!res.ok) throw new Error('Failed to load clients');
-    return res.json();
+    return requestJson<Client[]>('/api/clients', undefined, 'Failed to load clients');
   },
 
   async getClientById(id: string): Promise<{ client: Client; quotations: Quotation[] }> {
-    const res = await fetch(`/api/clients/${id}`);
-    if (!res.ok) throw new Error('Failed to load client details');
-    return res.json();
+    return requestJson<{ client: Client; quotations: Quotation[] }>(
+      `/api/clients/${id}`,
+      undefined,
+      'Failed to load client details'
+    );
   },
 
   async updateClientNotes(id: string, notes: string): Promise<Client> {
-    const res = await fetch(`/api/clients/${id}/notes`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notes }),
-    });
-    if (!res.ok) throw new Error('Failed to update client notes');
-    return res.json();
+    return requestJson<Client>(
+      `/api/clients/${id}/notes`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+      },
+      'Failed to update client notes'
+    );
   },
 
   async updateClientLocation(id: string, location: string | null): Promise<Client> {
-    const res = await fetch(`/api/clients/${id}/location`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ location }),
-    });
-    if (!res.ok) throw new Error('Failed to update client location');
-    return res.json();
+    return requestJson<Client>(
+      `/api/clients/${id}/location`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location }),
+      },
+      'Failed to update client location'
+    );
   },
 
   // Activities
   async getActivities(): Promise<Activity[]> {
-    const res = await fetch('/api/activities');
-    if (!res.ok) throw new Error('Failed to load activities');
-    return res.json();
+    return requestJson<Activity[]>('/api/activities', undefined, 'Failed to load activities');
   },
 
   // Sync
@@ -324,28 +382,26 @@ export const api = {
     sheetGid?: string;
     csvContent?: string;
   }): Promise<SyncRun> {
-    const res = await fetch('/api/sync/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(options || {}),
-    });
-    if (!res.ok) throw new Error('Failed to trigger synchronization');
-    return res.json();
+    return requestJson<SyncRun>(
+      '/api/sync/run',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(options || {}),
+      },
+      'Failed to trigger synchronization'
+    );
   },
 
   async getSyncStatus(): Promise<{
     latestRun: SyncRun | null;
     settings: WorkspaceSettings;
   }> {
-    const res = await fetch('/api/sync/status');
-    if (!res.ok) throw new Error('Failed to load sync status');
-    return res.json();
+    return requestJson('/api/sync/status', undefined, 'Failed to load sync status');
   },
 
   async getSyncHistory(): Promise<SyncRun[]> {
-    const res = await fetch('/api/sync/history');
-    if (!res.ok) throw new Error('Failed to load sync history');
-    return res.json();
+    return requestJson<SyncRun[]>('/api/sync/history', undefined, 'Failed to load sync history');
   },
 
   // Settings
@@ -353,9 +409,7 @@ export const api = {
     settings: WorkspaceSettings;
     supabase: { connected: boolean; url: string | null; hasKey: boolean };
   }> {
-    const res = await fetch('/api/settings');
-    if (!res.ok) throw new Error('Failed to load settings');
-    return res.json();
+    return requestJson('/api/settings', undefined, 'Failed to load settings');
   },
 
   async updateSettings(data: Partial<WorkspaceSettings> & {
@@ -365,31 +419,31 @@ export const api = {
     settings: WorkspaceSettings;
     supabase: { connected: boolean; url: string | null; hasKey: boolean };
   }> {
-    const res = await fetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error('Failed to update settings');
-    return res.json();
+    return requestJson(
+      '/api/settings',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      },
+      'Failed to update settings'
+    );
   },
 
   // Supabase Manual Sync
   async pushToSupabase(): Promise<{ success: boolean; message: string }> {
-    const res = await fetch('/api/supabase/push', { method: 'POST' });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to sync to Supabase');
-    }
-    return res.json();
+    return requestJson<{ success: boolean; message: string }>(
+      '/api/supabase/push',
+      { method: 'POST' },
+      'Failed to sync to Supabase'
+    );
   },
 
   async pullFromSupabase(): Promise<{ success: boolean; message: string }> {
-    const res = await fetch('/api/supabase/pull', { method: 'POST' });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to pull from Supabase');
-    }
-    return res.json();
+    return requestJson<{ success: boolean; message: string }>(
+      '/api/supabase/pull',
+      { method: 'POST' },
+      'Failed to pull from Supabase'
+    );
   },
 };

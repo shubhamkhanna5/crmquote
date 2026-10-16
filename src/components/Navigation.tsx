@@ -97,9 +97,9 @@ export const Navigation: React.FC<NavigationProps> = ({
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
+              title="Switch to Pranjal (Primary)"
             >
               <span>Pranjal</span>
-              {activeUser !== 'Pranjal' && <Lock className="w-2.5 h-2.5 text-slate-400" />}
             </button>
 
             <button
@@ -115,9 +115,10 @@ export const Navigation: React.FC<NavigationProps> = ({
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
+              title="Shubham (Protected with PIN 5678)"
             >
               <span>Shubham</span>
-              {activeUser !== 'Shubham' && <Lock className="w-2.5 h-2.5 text-slate-400" />}
+              {activeUser !== 'Shubham' && <Lock className="w-2.5 h-2.5 text-amber-500" />}
             </button>
           </div>
         </div>

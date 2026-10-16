@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import {
+  AlertTriangle,
   Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Copy,
   Database,
   Download,
@@ -58,6 +61,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
   const [showSqlModal, setShowSqlModal] = useState(false);
+  const [showSkippedRows, setShowSkippedRows] = useState(false);
   const [isSyncingSupabase, setIsSyncingSupabase] = useState(false);
   const [supabaseSyncMsg, setSupabaseSyncMsg] = useState<string | null>(null);
 
@@ -341,6 +345,67 @@ CREATE TABLE IF NOT EXISTS public.followups (
                 </p>
               </div>
             </div>
+
+            {/* Skipped & Deduplicated Rows Panel (PRD / Request #7) */}
+            {syncHistory[0].skipped_rows && syncHistory[0].skipped_rows.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowSkippedRows(!showSkippedRows)}
+                  className="flex items-center justify-between w-full text-left text-xs font-semibold text-slate-300 hover:text-white transition group"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center rounded-full bg-amber-500/20 text-amber-300 px-2 py-0.5 text-[10px] font-bold border border-amber-500/30">
+                      {syncHistory[0].skipped_rows.length} Skipped / Merged Rows
+                    </span>
+                    <span className="text-slate-400 font-normal text-[11px]">
+                      (Deduplicated, trials, or shifted columns)
+                    </span>
+                  </span>
+                  <span className="text-slate-400 text-xs flex items-center gap-1 group-hover:text-cyan-400">
+                    {showSkippedRows ? 'Hide details' : 'Show details'}
+                    {showSkippedRows ? (
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    )}
+                  </span>
+                </button>
+
+                {showSkippedRows && (
+                  <div className="mt-2.5 overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/80">
+                    <table className="w-full text-left text-[11px] border-collapse min-w-[500px]">
+                      <thead className="border-b border-slate-800 bg-slate-950/80 text-slate-400 font-mono">
+                        <tr>
+                          <th className="py-2 px-3 w-16">Row #</th>
+                          <th className="py-2 px-3">Client Name</th>
+                          <th className="py-2 px-3">Phone</th>
+                          <th className="py-2 px-3">Reason</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/70 text-slate-300 font-sans">
+                        {syncHistory[0].skipped_rows.map((sr, idx) => (
+                          <tr key={idx} className="hover:bg-slate-800/40">
+                            <td className="py-2 px-3 font-mono text-slate-400">
+                              {sr.row_number ? `#${sr.row_number}` : '—'}
+                            </td>
+                            <td className="py-2 px-3 font-semibold text-slate-200">
+                              {sr.client_name || sr.source_id || '—'}
+                            </td>
+                            <td className="py-2 px-3 font-mono text-slate-400">
+                              {sr.contact_number || '—'}
+                            </td>
+                            <td className="py-2 px-3 text-amber-300/90">
+                              {sr.reason}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

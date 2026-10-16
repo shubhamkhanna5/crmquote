@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PlusCircle, X } from 'lucide-react';
 import { Quotation, FollowUpType } from '../types';
 import { formatIndianCurrency } from '../../server/normalizer';
@@ -36,6 +36,17 @@ export const NewFollowUpModal: React.FC<NewFollowUpModalProps> = ({
   const [type, setType] = useState<FollowUpType>('Call');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Close on Escape key (Request #14)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const selectedQuote = quotations.find((q) => q.id === quotationId);
 

@@ -178,6 +178,14 @@ export interface SyncRun {
     error: string;
     raw?: any;
   }>;
+  skipped_rows?: Array<{
+    row_number?: number;
+    source_id?: string;
+    client_name?: string;
+    contact_number?: string;
+    reason: string;
+    raw?: any;
+  }>;
 }
 
 export interface WorkspaceSettings {
