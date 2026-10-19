@@ -173,7 +173,7 @@ export const UnifiedLeadCard: React.FC<UnifiedLeadCardProps> = ({
         quotation.sender_name,
         activeUser
       );
-      window.open(waUrl, '_blank');
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
     }
     // Immediately open outcome sheet so follow-up is logged
     setTimeout(() => {

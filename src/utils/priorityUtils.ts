@@ -44,6 +44,15 @@ export function computeQuotationPriority(
     } else if (followup.status === 'Scheduled') {
       score += 20;
     }
+
+    // Blend LIFO (Speed-to-lead for fresh inquiries) and FIFO (Neglect prevention for older clients)
+    if (ageDays <= 3) {
+      score += 40;
+      reasons.push('⚡ Fresh Inquiry (LIFO)');
+    } else if (ageDays >= 14) {
+      score += 35;
+      reasons.push(`⏳ Long-waiting Client (${ageDays}d old, FIFO)`);
+    }
   } else {
     // No Next Action Section: Figure out FIFO vs LIFO priority automatically
     const isUntouched = !quotation.has_action_taken && !quotation.latest_completed_followup;

@@ -2780,7 +2780,7 @@ function createExpressApp() {
       res.status(400).json({ error: err.message });
     }
   });
-  apiRouter.post("/followups/:id/complete", (req, res) => {
+  const handleFollowupComplete = (req, res) => {
     try {
       const {
         outcome,
@@ -2825,7 +2825,9 @@ function createExpressApp() {
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
-  });
+  };
+  apiRouter.post("/followups/:id/complete", handleFollowupComplete);
+  apiRouter.post("/followups/:id/done", handleFollowupComplete);
   apiRouter.post("/followups/:id/reschedule", (req, res) => {
     try {
       const { scheduled_date, scheduled_time, reason } = req.body;
@@ -3065,10 +3067,30 @@ function getApp() {
 function handler(req, res) {
   try {
     const customReq = req;
-    if (customReq.url === "/api" || customReq.url === "/" || customReq.url?.startsWith("/api?")) {
-      const originalPath = customReq.headers?.["x-matched-path"] || customReq.headers?.["x-now-route-matches"];
-      if (typeof originalPath === "string" && originalPath.startsWith("/api/")) {
-        customReq.url = originalPath;
+    if (customReq.url === "/api" || customReq.url === "/" || customReq.url?.startsWith("/api?") || customReq.url === "") {
+      const forwardedUri =
+        customReq.headers?.["x-forwarded-uri"] ||
+        customReq.headers?.["x-invoke-path"] ||
+        customReq.headers?.["x-original-url"];
+
+      if (typeof forwardedUri === "string" && forwardedUri.startsWith("/api/")) {
+        customReq.url = forwardedUri;
+      } else if (
+        customReq.headers?.["x-matched-path"] &&
+        typeof customReq.headers["x-matched-path"] === "string" &&
+        customReq.headers["x-matched-path"].startsWith("/api/")
+      ) {
+        customReq.url = customReq.headers["x-matched-path"];
+      } else if (customReq.headers?.["x-now-route-matches"]) {
+        const match = String(customReq.headers["x-now-route-matches"]).match(/1=([^&]+)/);
+        if (match && match[1]) {
+          customReq.url = `/api/${decodeURIComponent(match[1])}`;
+        }
+      } else if (customReq.query?.path) {
+        const queryPath = Array.isArray(customReq.query.path)
+          ? customReq.query.path.join("/")
+          : customReq.query.path;
+        customReq.url = `/api/${queryPath}`;
       }
     }
     const app = getApp();

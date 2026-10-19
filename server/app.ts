@@ -29,7 +29,11 @@ export function createExpressApp() {
 
   app.use(express.json({ limit: '10mb' }));
 
-  // Middleware to ensure data is loaded on serverless cold starts
+  // Allow popups (Google Auth, WhatsApp) without browser Cross-Origin-Opener-Policy blocking
+  app.use((_req, res, next) => {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+    next();
+  });
   app.use(async (req, res, next) => {
     try {
       if (db.getQuotations(DEFAULT_WORKSPACE_ID).length === 0) {
@@ -510,7 +514,7 @@ export function createExpressApp() {
   });
 
   // Complete Follow-up (PRD Section 42 & 43)
-  apiRouter.post(['/followups/:id/complete', '/followups/:id/done'], (req, res) => {
+  const handleFollowupComplete = (req: express.Request, res: express.Response) => {
     try {
       const {
         outcome,
@@ -562,7 +566,10 @@ export function createExpressApp() {
     } catch (err: any) {
       res.status(400).json({ error: err.message });
     }
-  });
+  };
+
+  apiRouter.post('/followups/:id/complete', handleFollowupComplete);
+  apiRouter.post('/followups/:id/done', handleFollowupComplete);
 
   // Reschedule Follow-up (PRD Section 40)
   apiRouter.post('/followups/:id/reschedule', (req, res) => {

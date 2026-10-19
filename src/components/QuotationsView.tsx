@@ -968,14 +968,6 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
                             </button>
                             <button
                               disabled={schedulingQuoteId === q.id}
-                              onClick={() => handleQuickSchedule(q, 3)}
-                              className="rounded bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/40 px-1.5 py-0.5 text-[10px] font-bold text-teal-300 transition active:scale-95 disabled:opacity-50"
-                              title="Schedule call in 3 Days 10:30 AM"
-                            >
-                              +3d
-                            </button>
-                            <button
-                              disabled={schedulingQuoteId === q.id}
                               onClick={() => handleQuickSchedule(q, 7)}
                               className="rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 px-1.5 py-0.5 text-[10px] font-bold text-slate-300 transition active:scale-95 disabled:opacity-50"
                               title="Schedule call in 1 Week 10:30 AM"
