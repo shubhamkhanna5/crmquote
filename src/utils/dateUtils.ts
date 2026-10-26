@@ -20,16 +20,16 @@ export function formatDDMMYYYY(dateInput?: string | Date | null): string {
       const year = ymdMatch[1];
       const month = ymdMatch[2].padStart(2, '0');
       const day = ymdMatch[3].padStart(2, '0');
-      return `${day}-${month}-${year}`;
+      return `${day}/${month}/${year}`;
     }
 
-    // If already in DD-MM-YYYY or DD/MM/YYYY, normalize to DD-MM-YYYY
+    // If already in DD-MM-YYYY or DD/MM/YYYY, normalize to DD/MM/YYYY
     const dmyMatch = trimmed.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
     if (dmyMatch) {
       const day = dmyMatch[1].padStart(2, '0');
       const month = dmyMatch[2].padStart(2, '0');
       const year = dmyMatch[3];
-      return `${day}-${month}-${year}`;
+      return `${day}/${month}/${year}`;
     }
   }
 
@@ -41,7 +41,7 @@ export function formatDDMMYYYY(dateInput?: string | Date | null): string {
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
-    return `${day}-${month}-${year}`;
+    return `${day}/${month}/${year}`;
   } catch {
     return typeof dateInput === 'string' ? dateInput : '';
   }

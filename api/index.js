@@ -955,12 +955,72 @@ var Database = class {
     return quote;
   }
   // --- Follow-ups ---
+  cleanUpDuplicateFollowUps(workspaceId = DEFAULT_WORKSPACE_ID) {
+    const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+    const quoteMap = new Map();
+    for (const f of this.store.followups) {
+      if (f.workspace_id !== workspaceId) continue;
+      if (["Scheduled", "Due", "Overdue"].includes(f.status)) {
+        if (!quoteMap.has(f.quotation_id)) {
+          quoteMap.set(f.quotation_id, []);
+        }
+        quoteMap.get(f.quotation_id).push(f);
+      }
+    }
+
+    let cleaned = false;
+    for (const [quoteId, fList] of quoteMap.entries()) {
+      const quote = this.store.quotations.find((q) => q.id === quoteId);
+      if (
+        !quote ||
+        quote.archived_at ||
+        quote.app_status === "Won" ||
+        quote.app_status === "Lost" ||
+        quote.app_status === "Cancelled"
+      ) {
+        for (const f of fList) {
+          f.status = "Completed";
+          f.outcome = quote?.app_status === "Won" ? "Order finalized / Advance received" : "Not interested";
+          f.completed_at = f.completed_at || (/* @__PURE__ */ new Date()).toISOString();
+          f.updated_at = (/* @__PURE__ */ new Date()).toISOString();
+          this.syncFollowUpToSupabase(f);
+          cleaned = true;
+        }
+        continue;
+      }
+
+      if (fList.length > 1) {
+        fList.sort((a, b) => {
+          const aFuture = a.scheduled_date > today ? 1 : 0;
+          const bFuture = b.scheduled_date > today ? 1 : 0;
+          if (aFuture !== bFuture) return bFuture - aFuture;
+          return (b.updated_at || b.created_at || "").localeCompare(a.updated_at || a.created_at || "");
+        });
+
+        for (let i = 1; i < fList.length; i++) {
+          const oldF = fList[i];
+          oldF.status = "Completed";
+          oldF.outcome = "Rescheduled";
+          oldF.completed_at = oldF.completed_at || (/* @__PURE__ */ new Date()).toISOString();
+          oldF.updated_at = (/* @__PURE__ */ new Date()).toISOString();
+          this.syncFollowUpToSupabase(oldF);
+          cleaned = true;
+        }
+      }
+    }
+
+    if (cleaned) {
+      this.saveStore();
+    }
+  }
+
   getFollowUps(workspaceId = DEFAULT_WORKSPACE_ID) {
+    this.cleanUpDuplicateFollowUps(workspaceId);
     const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
     return this.store.followups.filter((f) => {
       if (f.workspace_id !== workspaceId) return false;
       const quote = this.store.quotations.find((q) => q.id === f.quotation_id);
-      if (!quote || quote.archived_at || isTrialRecord(quote.client_name, quote.contact_number, quote.contact_number_raw)) {
+      if (!quote || quote.archived_at || quote.app_status === "Won" || quote.app_status === "Lost" || quote.app_status === "Cancelled" || isTrialRecord(quote.client_name, quote.contact_number, quote.contact_number_raw)) {
         return false;
       }
       return true;
@@ -2830,15 +2890,18 @@ function createExpressApp() {
   apiRouter.post("/followups/:id/done", handleFollowupComplete);
   apiRouter.post("/followups/:id/reschedule", (req, res) => {
     try {
-      const { scheduled_date, scheduled_time, reason } = req.body;
-      if (!scheduled_date) {
-        return res.status(400).json({ error: "scheduled_date is required" });
+      const { scheduled_date, scheduled_time, reason, newDate, newTime, notes } = req.body;
+      const targetDate = scheduled_date || newDate;
+      const targetTime = scheduled_time || newTime || "10:30";
+      const targetReason = reason || notes;
+      if (!targetDate) {
+        return res.status(400).json({ error: "scheduled_date or newDate is required" });
       }
       const updated = db.rescheduleFollowUp(
         req.params.id,
-        scheduled_date,
-        scheduled_time || "10:30",
-        reason,
+        targetDate,
+        targetTime,
+        targetReason,
         DEFAULT_WORKSPACE_ID
       );
       if (!updated) {

@@ -123,20 +123,58 @@ export const MyDayView: React.FC<MyDayViewProps> = ({
     [rawQuotations]
   );
 
-  // Categorize
+  // Categorize active follow-ups (deduplicated by quotation to ensure rescheduled/future leads never linger in Due Today)
+  const activeFollowupsByQuote = useMemo(() => {
+    const map = new Map<string, FollowUp>();
+    for (const f of followups) {
+      if (!['Scheduled', 'Due', 'Overdue'].includes(f.status)) continue;
+      if (
+        f.quotation?.app_status === 'Won' ||
+        f.quotation?.app_status === 'Lost' ||
+        f.quotation?.app_status === 'Cancelled'
+      ) {
+        continue;
+      }
+
+      const existing = map.get(f.quotation_id);
+      if (!existing) {
+        map.set(f.quotation_id, f);
+      } else {
+        // Prioritize follow-up scheduled in the future (> today), then latest updated/created
+        const fFuture = f.scheduled_date > todayStr ? 1 : 0;
+        const exFuture = existing.scheduled_date > todayStr ? 1 : 0;
+        if (fFuture !== exFuture) {
+          if (fFuture > exFuture) map.set(f.quotation_id, f);
+        } else {
+          if (
+            (f.updated_at || f.created_at || '').localeCompare(
+              existing.updated_at || existing.created_at || ''
+            ) > 0
+          ) {
+            map.set(f.quotation_id, f);
+          }
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [followups, todayStr]);
+
   const overdueFollowups = useMemo(
-    () => followups.filter((f) => f.status === 'Overdue'),
-    [followups]
+    () => activeFollowupsByQuote.filter((f) => f.status === 'Overdue'),
+    [activeFollowupsByQuote]
   );
 
   const dueTodayFollowups = useMemo(
-    () => followups.filter((f) => f.status === 'Due'),
-    [followups]
+    () => activeFollowupsByQuote.filter((f) => f.status === 'Due'),
+    [activeFollowupsByQuote]
   );
 
   const upcomingFollowups = useMemo(
-    () => followups.filter((f) => f.status === 'Scheduled' && f.scheduled_date > todayStr),
-    [followups, todayStr]
+    () =>
+      activeFollowupsByQuote.filter(
+        (f) => f.status === 'Scheduled' && f.scheduled_date > todayStr
+      ),
+    [activeFollowupsByQuote, todayStr]
   );
 
   const activeStatuses = ['New', 'Active', 'In Discussion', 'Waiting for Client', 'On Hold'];

@@ -482,10 +482,9 @@ export const RecordActionModal: React.FC<RecordActionModalProps> = ({
               )}
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
               {[
                 { id: 'tomorrow', label: 'Tomorrow' },
-                { id: '3_days', label: 'In 3 Days' },
                 { id: '7_days', label: 'In 1 Week' },
                 { id: 'custom', label: 'Custom Date' },
                 { id: 'none', label: 'No Follow-up' },

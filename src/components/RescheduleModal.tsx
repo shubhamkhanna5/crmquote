@@ -16,12 +16,11 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
   onReschedule,
 }) => {
   const { showToast } = useToast();
-  const [option, setOption] = useState<'tomorrow' | '3_days' | 'next_week' | 'custom'>('tomorrow');
+  const [option, setOption] = useState<'tomorrow' | 'next_week' | 'custom'>('tomorrow');
 
-  const getDateForOption = (opt: 'tomorrow' | '3_days' | 'next_week') => {
+  const getDateForOption = (opt: 'tomorrow' | 'next_week') => {
     const d = new Date();
     if (opt === 'tomorrow') d.setDate(d.getDate() + 1);
-    else if (opt === '3_days') d.setDate(d.getDate() + 3);
     else if (opt === 'next_week') d.setDate(d.getDate() + 7);
     return d.toISOString().split('T')[0];
   };
@@ -101,10 +100,9 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-2">
               Select New Schedule
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {[
                 { id: 'tomorrow', label: 'Tomorrow' },
-                { id: '3_days', label: 'In 3 Days' },
                 { id: 'next_week', label: 'Next Week' },
                 { id: 'custom', label: 'Custom Date' },
               ].map((opt) => (
@@ -121,7 +119,7 @@ export const RescheduleModal: React.FC<RescheduleModalProps> = ({
                   <p className="font-semibold">{opt.label}</p>
                   <p className="text-[11px] text-slate-500 mt-0.5">
                     {opt.id !== 'custom'
-                      ? getDateForOption(opt.id as any)
+                      ? formatDDMMYYYY(getDateForOption(opt.id as any))
                       : 'Pick custom day'}
                   </p>
                 </button>

@@ -1205,7 +1205,69 @@ class Database {
   }
 
   // --- Follow-ups ---
+  public cleanUpDuplicateFollowUps(workspaceId = DEFAULT_WORKSPACE_ID) {
+    const today = new Date().toISOString().split('T')[0];
+    const quoteMap = new Map<string, FollowUp[]>();
+    for (const f of this.store.followups) {
+      if (f.workspace_id !== workspaceId) continue;
+      if (['Scheduled', 'Due', 'Overdue'].includes(f.status)) {
+        if (!quoteMap.has(f.quotation_id)) {
+          quoteMap.set(f.quotation_id, []);
+        }
+        quoteMap.get(f.quotation_id)!.push(f);
+      }
+    }
+
+    let cleaned = false;
+    for (const [quoteId, fList] of quoteMap.entries()) {
+      const quote = this.store.quotations.find((q) => q.id === quoteId);
+      if (
+        !quote ||
+        quote.archived_at ||
+        quote.app_status === 'Won' ||
+        quote.app_status === 'Lost' ||
+        quote.app_status === 'Cancelled'
+      ) {
+        for (const f of fList) {
+          f.status = 'Completed';
+          f.outcome = quote?.app_status === 'Won' ? 'Interested' : 'Not interested';
+          f.completed_at = f.completed_at || new Date().toISOString();
+          f.updated_at = new Date().toISOString();
+          this.syncFollowUpToSupabase(f);
+          cleaned = true;
+        }
+        continue;
+      }
+
+      if (fList.length > 1) {
+        // Prioritize the follow-up scheduled in the future, then latest updated/created
+        fList.sort((a, b) => {
+          const aFuture = a.scheduled_date > today ? 1 : 0;
+          const bFuture = b.scheduled_date > today ? 1 : 0;
+          if (aFuture !== bFuture) return bFuture - aFuture;
+          return (b.updated_at || b.created_at || '').localeCompare(a.updated_at || a.created_at || '');
+        });
+
+        for (let i = 1; i < fList.length; i++) {
+          const oldF = fList[i];
+          oldF.status = 'Rescheduled';
+          oldF.outcome = 'Other';
+          oldF.notes = oldF.notes ? `${oldF.notes} (Superseded by newer schedule)` : 'Superseded by newer schedule';
+          oldF.completed_at = oldF.completed_at || new Date().toISOString();
+          oldF.updated_at = new Date().toISOString();
+          this.syncFollowUpToSupabase(oldF);
+          cleaned = true;
+        }
+      }
+    }
+
+    if (cleaned) {
+      this.saveStore();
+    }
+  }
+
   public getFollowUps(workspaceId = DEFAULT_WORKSPACE_ID): FollowUp[] {
+    this.cleanUpDuplicateFollowUps(workspaceId);
     const today = new Date().toISOString().split('T')[0];
     return this.store.followups
       .filter((f) => {
@@ -1214,6 +1276,9 @@ class Database {
         if (
           !quote ||
           quote.archived_at ||
+          quote.app_status === 'Won' ||
+          quote.app_status === 'Lost' ||
+          quote.app_status === 'Cancelled' ||
           isTrialRecord(quote.client_name, quote.contact_number, quote.contact_number_raw)
         ) {
           return false;
@@ -1379,6 +1444,21 @@ class Database {
     followup.completed_at = now;
     followup.updated_at = now;
 
+    // Mark any other open follow-ups for this quotation as completed
+    this.store.followups.forEach((f) => {
+      if (
+        f.id !== followup.id &&
+        f.quotation_id === followup.quotation_id &&
+        ['Scheduled', 'Due', 'Overdue'].includes(f.status)
+      ) {
+        f.status = 'Completed';
+        f.outcome = data.outcome;
+        f.completed_at = now;
+        f.updated_at = now;
+        this.syncFollowUpToSupabase(f);
+      }
+    });
+
     this.addActivity({
       workspace_id: workspaceId,
       quotation_id: followup.quotation_id,
@@ -1478,6 +1558,22 @@ class Database {
     if (notes) {
       followup.notes = notes;
     }
+
+    // Mark any other open follow-ups for this quotation as superseded
+    this.store.followups.forEach((f) => {
+      if (
+        f.id !== followup.id &&
+        f.quotation_id === followup.quotation_id &&
+        ['Scheduled', 'Due', 'Overdue'].includes(f.status)
+      ) {
+        f.status = 'Rescheduled';
+        f.outcome = 'Other';
+        f.notes = f.notes ? `${f.notes} (Superseded by newer schedule)` : 'Superseded by newer schedule';
+        f.completed_at = now;
+        f.updated_at = now;
+        this.syncFollowUpToSupabase(f);
+      }
+    });
 
     this.addActivity({
       workspace_id: workspaceId,

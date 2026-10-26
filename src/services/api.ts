@@ -243,14 +243,22 @@ export const api = {
   async rescheduleFollowUp(
     id: string,
     newDate: string,
-    newTime = '10:30'
+    newTime = '10:30',
+    notes?: string
   ): Promise<FollowUp> {
     return requestJson<FollowUp>(
       `/api/followups/${id}/reschedule`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newDate, newTime }),
+        body: JSON.stringify({
+          newDate,
+          newTime,
+          scheduled_date: newDate,
+          scheduled_time: newTime,
+          notes,
+          reason: notes,
+        }),
       },
       'Failed to reschedule follow-up'
     );

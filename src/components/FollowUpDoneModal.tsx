@@ -69,7 +69,7 @@ const OUTCOME_GROUPS: {
         desc: 'Discussed project scope & pricing',
         icon: '📞',
         group: 'connected',
-        defaultNext: '3_days',
+        defaultNext: '7_days',
         defaultType: 'Call',
         colorClass: 'border-emerald-200 bg-emerald-50/50 hover:border-emerald-400 text-emerald-950',
         suggestedTemp: 'warm',
@@ -80,7 +80,7 @@ const OUTCOME_GROUPS: {
         desc: 'Keen to proceed with installation',
         icon: '⭐️',
         group: 'connected',
-        defaultNext: '3_days',
+        defaultNext: '7_days',
         defaultType: 'Call',
         colorClass: 'border-emerald-200 bg-emerald-50/50 hover:border-emerald-400 text-emerald-950',
         suggestedTemp: 'hot',
@@ -91,7 +91,7 @@ const OUTCOME_GROUPS: {
         desc: 'Shared PDF estimate & drawing',
         icon: '📄',
         group: 'connected',
-        defaultNext: '3_days',
+        defaultNext: '7_days',
         defaultType: 'WhatsApp',
         colorClass: 'border-teal-200 bg-teal-50/50 hover:border-teal-400 text-teal-950',
         suggestedTemp: 'warm',
@@ -102,7 +102,7 @@ const OUTCOME_GROUPS: {
         desc: 'Confirmed site or office appointment',
         icon: '🤝',
         group: 'connected',
-        defaultNext: '3_days',
+        defaultNext: 'tomorrow',
         defaultType: 'Meeting',
         colorClass: 'border-blue-200 bg-blue-50/50 hover:border-blue-400 text-blue-950',
         suggestedTemp: 'hot',
@@ -119,7 +119,7 @@ const OUTCOME_GROUPS: {
         desc: 'Consulting with family or architect',
         icon: '⏳',
         group: 'discussion',
-        defaultNext: '3_days',
+        defaultNext: '7_days',
         defaultType: 'WhatsApp',
         colorClass: 'border-amber-200 bg-amber-50/50 hover:border-amber-400 text-amber-950',
         suggestedTemp: 'warm',
@@ -199,7 +199,7 @@ const OUTCOME_GROUPS: {
         desc: 'Custom outcome (add details in notes)',
         icon: '💬',
         group: 'unreachable',
-        defaultNext: '3_days',
+        defaultNext: '7_days',
         defaultType: 'Call',
         colorClass: 'border-slate-200 bg-slate-50/60 hover:border-slate-400 text-slate-800',
       },
@@ -610,10 +610,9 @@ export const FollowUpDoneModal: React.FC<FollowUpDoneModalProps> = ({
             </div>
 
             {/* Next Action Timeframe Buttons: In 1 Week selected by default */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
               {[
                 { id: 'tomorrow', label: 'Tomorrow' },
-                { id: '3_days', label: 'In 3 Days' },
                 { id: '7_days', label: 'In 1 Week' },
                 { id: 'custom', label: 'Custom Date' },
                 { id: 'none', label: 'No Follow-up' },

@@ -10,7 +10,6 @@ export interface QuickSchedulePreset {
 
 export const QUICK_SCHEDULE_PRESETS: QuickSchedulePreset[] = [
   { label: 'Tomorrow', shortLabel: '+1d', days: 1, type: 'Call' },
-  { label: 'In 3 Days', shortLabel: '+3d', days: 3, type: 'Call' },
   { label: 'In 1 Week', shortLabel: '+7d', days: 7, type: 'Call' },
   { label: 'In 2 Weeks', shortLabel: '+14d', days: 14, type: 'Call' },
 ];

@@ -44,6 +44,7 @@ import {
 } from './types';
 import { api } from './services/api';
 import { formatIndianCurrency } from '../server/normalizer';
+import { formatDDMMYYYY } from './utils/dateUtils';
 import { RotateCw, Search, Plus, CheckCircle2, Layers, Lock } from 'lucide-react';
 
 export default function App() {
@@ -255,7 +256,7 @@ export default function App() {
           }
         }
         showToast(
-          `Follow-up saved & next follow-up set for ${result.nextFollowup.scheduled_date}`,
+          `Follow-up saved & next follow-up set for ${formatDDMMYYYY(result.nextFollowup.scheduled_date)}`,
           'success'
         );
       } else {
@@ -326,7 +327,7 @@ export default function App() {
         }
       } else {
         showToast(
-          `Follow-up scheduled for ${data.scheduled_date}! Connect Calendar to auto-sync.`,
+          `Follow-up scheduled for ${formatDDMMYYYY(data.scheduled_date)}! Connect Calendar to auto-sync.`,
           'info',
           6000,
           {

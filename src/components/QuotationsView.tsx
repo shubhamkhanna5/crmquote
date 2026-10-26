@@ -117,7 +117,7 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
         const syncRes = await syncFollowUpToGoogleCalendar(newFollowup, quote);
         if (syncRes.success) {
           showToast(
-            `Follow-up scheduled with ${quote.client_name} for ${scheduledDate} & added to Calendar!`,
+            `Follow-up scheduled with ${quote.client_name} for ${formatDDMMYYYY(scheduledDate)} & added to Calendar!`,
             'success',
             5000,
             syncRes.link ? { link: { label: 'View in Calendar ↗', url: syncRes.link } } : undefined
@@ -127,7 +127,7 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
         }
       }
 
-      showToast(`Follow-up scheduled with ${quote.client_name} for ${scheduledDate}`, 'success');
+      showToast(`Follow-up scheduled with ${quote.client_name} for ${formatDDMMYYYY(scheduledDate)}`, 'success');
       onRefresh();
     } catch (err: any) {
       showToast(err.message || 'Failed to schedule follow-up', 'error');
